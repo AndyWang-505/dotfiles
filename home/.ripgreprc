@@ -1,0 +1,2 @@
+--glob=!**/CHANGELOG.md
+--glob=!node_modules/

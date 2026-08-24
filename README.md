@@ -6,6 +6,7 @@ Personal dotfiles managed with [GNU Stow](https://www.gnu.org/software/stow/).
 
 | Package | Description |
 |---------|-------------|
+| **home** | Files stowed directly to `$HOME` — ripgrep config (`~/.ripgreprc`) |
 | **fish** | Interactive shell — [Fisher](https://github.com/jorgebucaran/fisher), [Tide](https://github.com/IlanCosman/tide) prompt, [nvm.fish](https://github.com/jorgebucaran/nvm.fish) |
 | **nvim** | Neovim config based on [LazyVim](https://www.lazyvim.org/) |
 | **tmux** | `C-a` prefix, vi-style copy mode, plugins via [TPM](https://github.com/tmux-plugins/tpm) |

@@ -8,7 +8,7 @@ if [ "$(uname)" != Darwin ]; then
 fi
 
 DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PACKAGES=(nvim tmux ghostty fish)
+PACKAGES=(home nvim tmux ghostty fish)
 
 log() { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
 skip() { printf '    %s\n' "$*"; }
