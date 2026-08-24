@@ -8,7 +8,7 @@ if [ "$(uname)" != Darwin ]; then
 fi
 
 DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PACKAGES=(zsh nvim tmux ghostty fish)
+PACKAGES=(nvim tmux ghostty fish)
 
 log() { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
 skip() { printf '    %s\n' "$*"; }
@@ -89,15 +89,6 @@ git config --file "$GITCONFIG" --get user.email >/dev/null ||
   WARNINGS+=("set user.name and user.email in $GITCONFIG")
 
 # --------------------------------------------------------------------- stow --
-# stow refuses to overwrite regular files, so move anything pre-existing aside.
-for file in .zshrc .zprofile; do
-  target="$HOME/$file"
-  if [ -f "$target" ] && [ ! -L "$target" ]; then
-    log "Backing up $target -> $target.pre-dotfiles"
-    mv "$target" "$target.pre-dotfiles"
-  fi
-done
-
 # Simulate first: stow's own failure output is hard to act on mid-script.
 if ! conflicts=$(stow --dir="$DOTFILES_DIR" --target="$HOME" --no --restow "${PACKAGES[@]}" 2>&1); then
   printf '%s\n' "$conflicts" >&2
