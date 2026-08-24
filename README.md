@@ -36,6 +36,5 @@ These are untracked on purpose (repo is public):
 | File | Purpose |
 |------|---------|
 | `~/.gitconfig` | Identity and URL rewrites |
-| `~/.zshrc.local` | Credentials and work env (sourced by zsh) |
-| `~/.config/fish/config-local.fish` | Same, for fish |
+| `~/.config/fish/config-local.fish` | Credentials and work env vars |
 | `nvim/.../lua/plugins/local/` | Editor config tied to a specific employer |
