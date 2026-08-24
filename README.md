@@ -7,12 +7,11 @@ Personal dotfiles managed with [GNU Stow](https://www.gnu.org/software/stow/).
 | Package | Description |
 |---------|-------------|
 | **fish** | Interactive shell — [Fisher](https://github.com/jorgebucaran/fisher), [Tide](https://github.com/IlanCosman/tide) prompt, [nvm.fish](https://github.com/jorgebucaran/nvm.fish) |
-| **zsh** | Login shell — PATH, nvm, pnpm for scripts and fallback sessions |
 | **nvim** | Neovim config based on [LazyVim](https://www.lazyvim.org/) |
 | **tmux** | `C-a` prefix, vi-style copy mode, plugins via [TPM](https://github.com/tmux-plugins/tpm) |
 | **ghostty** | Terminal — tokyonight-night, transparent background, launches fish |
 
-> **git** is intentionally not a package — identity and URL rewrites differ per machine. `install.sh` writes `~/.gitconfig` once and never tracks it.
+> **git** and **zsh** are intentionally not packages — git identity and URL rewrites differ per machine; zsh is only the login shell and gets its PATH from `/etc/paths`. `install.sh` writes `~/.gitconfig` once and never tracks it.
 
 ## Install
 
