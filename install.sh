@@ -39,39 +39,12 @@ log "Installing packages from Brewfile"
 HOMEBREW_NO_INSTALL_CLEANUP=1 brew bundle install --no-upgrade --file="$DOTFILES_DIR/Brewfile"
 
 # ------------------------------------------------------- machine-local files --
-# Values that must not live in a public repo. Sourced by the stowed configs.
-if [ -f "$HOME/.zshrc.local" ]; then
-  skip "~/.zshrc.local exists"
-else
-  log "Creating ~/.zshrc.local"
-  cat >"$HOME/.zshrc.local" <<'EOF'
-# Machine-local zsh config. Not tracked by the dotfiles repo.
-# export JIRA_USER_EMAIL="you@example.com"
-# export JIRA_API_TOKEN="$(security find-generic-password -a "$USER" -s jira_api_token -w)"
-EOF
-fi
-
 # git config is per-machine (identity, and URL rewrites that exist only because a
 # given work repo cannot be cloned over SSH here), so the repo ships none of it.
 # Written key by key rather than as one template: a ~/.gitconfig that another tool
 # already created still has to end up with the URL rewrite, which is the one
 # setting here that is painful to rediscover.
 GITCONFIG="$HOME/.gitconfig"
-
-# A machine bootstrapped while this repo still had a git package has ~/.gitconfig
-# symlinked into the checkout. Left alone, the writes below would follow the now
-# dangling link and recreate git/.gitconfig inside a public repo.
-if [ -L "$GITCONFIG" ]; then
-  log "Removing the stale ~/.gitconfig symlink -> $(readlink "$GITCONFIG")"
-  rm "$GITCONFIG"
-fi
-
-# Same vintage: the identity used to live in ~/.gitconfig.local, pulled in by an
-# [include] that no longer exists.
-if [ ! -f "$GITCONFIG" ] && [ -f "$HOME/.gitconfig.local" ]; then
-  log "Migrating ~/.gitconfig.local into ~/.gitconfig"
-  cp "$HOME/.gitconfig.local" "$GITCONFIG"
-fi
 
 if [ -f "$GITCONFIG" ]; then
   skip "~/.gitconfig exists"
@@ -136,8 +109,7 @@ else
   log "Creating $FISH_LOCAL"
   cat >"$FISH_LOCAL" <<'EOF'
 # Machine-local fish config. Not tracked by the dotfiles repo.
-# set -gx JIRA_USER_EMAIL you@example.com
-# set -gx JIRA_API_TOKEN (security find-generic-password -a $USER -s jira_api_token -w)
+# set -gx MY_VAR value
 EOF
 fi
 
@@ -183,8 +155,7 @@ fi
 cat <<EOF
 
 Left for you to do by hand:
-  - Put your real values in ~/.gitconfig, ~/.zshrc.local and
-    ~/.config/fish/config-local.fish
+  - Put your real values in ~/.gitconfig and ~/.config/fish/config-local.fish
   - ghostty runs fish already. Only chsh if you also want it as the login shell:
       echo \$(brew --prefix)/bin/fish | sudo tee -a /etc/shells
       chsh -s \$(brew --prefix)/bin/fish
