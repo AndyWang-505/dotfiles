@@ -56,10 +56,13 @@ fi
 git config --file "$GITCONFIG" alias.co checkout
 git config --file "$GITCONFIG" url."https://github.com/".insteadOf "git@github.com:"
 
-# Deliberately no placeholder identity: git refusing to commit until you set one
-# beats silently attributing commits to your-name <you@example.com>.
-git config --file "$GITCONFIG" --get user.email >/dev/null ||
+# Deliberately no placeholder identity, but a missing one is not caught by git
+# either: it falls back to the macOS account's full name and a hostname-based
+# email and commits anyway. So warn when either key is missing.
+if ! git config --file "$GITCONFIG" --get user.name >/dev/null ||
+  ! git config --file "$GITCONFIG" --get user.email >/dev/null; then
   WARNINGS+=("set user.name and user.email in $GITCONFIG")
+fi
 
 # --------------------------------------------------------------------- stow --
 # Simulate first: stow's own failure output is hard to act on mid-script.
@@ -83,7 +86,7 @@ if [ -d "$TPM_DIR" ]; then
   skip "TPM already cloned"
 else
   log "Cloning TPM"
-  git clone --depth 1 https://github.com/tmux-plugins/tpm "$TPM_DIR"
+  try git clone --depth 1 https://github.com/tmux-plugins/tpm "$TPM_DIR"
 fi
 
 log "Installing tmux plugins"
@@ -95,7 +98,7 @@ if fish -c 'functions -q fisher' 2>/dev/null; then
   skip "fisher already installed"
 else
   log "Installing fisher"
-  fish -c 'curl -sL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source && fisher install jorgebucaran/fisher'
+  try fish -c 'curl -sL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source && fisher install jorgebucaran/fisher'
 fi
 
 log "Installing fish plugins from fish_plugins"
@@ -117,21 +120,39 @@ fi
 # The Brewfile installs nvm, which ships no Node version of its own. Without one
 # mason cannot install the npm-backed tooling the typescript, eslint and prettier
 # extras rely on.
-if [ -d "$HOME/.nvm/versions/node" ]; then
+#
+# nvm.fish creates ~/.nvm/versions/node (holding only an .index) when fisher
+# installs it above, so only an actual version under it counts.
+if ls -d "$HOME"/.nvm/versions/node/v*/ >/dev/null 2>&1; then
   skip "Node already installed"
 else
   log "Installing the LTS Node version"
   try bash -c 'export NVM_DIR="$HOME/.nvm"; mkdir -p "$NVM_DIR"; . "$(brew --prefix nvm)/nvm.sh"; nvm install --lts'
 fi
 
+# nvm.fish puts a version on PATH only when nvm_default_version is set, and the
+# bash nvm install above sets just nvm's own default alias. Pinning fish to that
+# alias keeps both shells on the same Node.
+if fish -c 'set -q nvm_default_version' 2>/dev/null; then
+  skip "nvm_default_version already set"
+else
+  node_default=$(bash -c 'export NVM_DIR="$HOME/.nvm"; . "$(brew --prefix nvm)/nvm.sh"; nvm version default' 2>/dev/null || true)
+  if [ -n "$node_default" ] && [ "$node_default" != N/A ]; then
+    log "Setting nvm_default_version to $node_default"
+    try fish -c "set -U nvm_default_version $node_default"
+  else
+    WARNINGS+=("set nvm_default_version in fish: no default Node version found")
+  fi
+fi
+
 # ---------------------------------------------------------------------- nvim --
 LOCKFILE="$DOTFILES_DIR/nvim/.config/nvim/lazy-lock.json"
 
-# On a machine with no plugins yet, lazy.nvim clones with --filter=blob:none
-# --single-branch, which leaves the pinned commit unreachable: it checks out HEAD
-# instead and then rewrites lazy-lock.json with what it actually got. Restoring
-# the lockfile and running again applies the pins for real, now that the repos
-# exist. Only done when we are the ones who dirtied it.
+# After a restore lazy.nvim rewrites lazy-lock.json from the plugins in the
+# current spec, so on a machine without plugins/local it drops the pins of the
+# employer-only plugins. The plugins themselves are already at the pinned
+# commits, so putting the tracked file back loses nothing. Only done when we are
+# the ones who dirtied it.
 lock_was_clean=false
 git -C "$DOTFILES_DIR" diff --quiet -- "$LOCKFILE" && lock_was_clean=true
 
@@ -139,9 +160,7 @@ log "Installing Neovim plugins"
 try nvim --headless "+Lazy! restore" +qa
 
 if [ "$lock_was_clean" = true ] && ! git -C "$DOTFILES_DIR" diff --quiet -- "$LOCKFILE"; then
-  log "Re-applying the pinned plugin versions"
   git -C "$DOTFILES_DIR" checkout -- "$LOCKFILE"
-  try nvim --headless "+Lazy! restore" +qa
 fi
 
 # --------------------------------------------------------------------- done ---
