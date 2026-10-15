@@ -17,6 +17,8 @@ brew "fzf"
 brew "ripgrep"
 brew "fd"
 brew "lazygit"
+# img-clip.nvim's only clipboard source on macOS
+brew "pngpaste"
 
 # Node toolchain
 brew "nvm"
