@@ -43,16 +43,19 @@ These are untracked on purpose (repo is public):
 ## Claude Code status in tmux
 
 `tmux/.config/tmux/scripts/claude-wait.sh` marks each tmux window with what its
-Claude Code session is doing: yellow ⏳ when it needs an answer, blue ✅ when it
-finished and you have not looked yet. Claude Code has to call it, so add these
+Claude Code session is doing: 🔄 while it works, yellow ⏳ when it needs an
+answer, blue ✅ when it finished and you have not looked yet, 💤 once you have
+(or before the first prompt). Claude Code has to call it, so add these
 hooks to `~/.claude/settings.json` on a new machine:
 
 ```json
 "hooks": {
   "Notification":     [{ "hooks": [{ "type": "command", "command": "\"$HOME/.config/tmux/scripts/claude-wait.sh\" ask" }] }],
   "Stop":             [{ "hooks": [{ "type": "command", "command": "\"$HOME/.config/tmux/scripts/claude-wait.sh\" done" }] }],
-  "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "\"$HOME/.config/tmux/scripts/claude-wait.sh\" clear" }] }],
-  "PostToolUse":      [{ "matcher": "*", "hooks": [{ "type": "command", "command": "\"$HOME/.config/tmux/scripts/claude-wait.sh\" clear" }] }]
+  "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "\"$HOME/.config/tmux/scripts/claude-wait.sh\" run" }] }],
+  "PostToolUse":      [{ "matcher": "*", "hooks": [{ "type": "command", "command": "\"$HOME/.config/tmux/scripts/claude-wait.sh\" run" }] }],
+  "SessionStart":     [{ "matcher": "startup|resume|clear", "hooks": [{ "type": "command", "command": "\"$HOME/.config/tmux/scripts/claude-wait.sh\" idle" }] }],
+  "SessionEnd":       [{ "hooks": [{ "type": "command", "command": "\"$HOME/.config/tmux/scripts/claude-wait.sh\" clear" }] }]
 }
 ```
 

@@ -2,7 +2,7 @@
 # fzf window switcher for `prefix f`. Windows flagged by Claude Code's hooks
 # (@claude_wait) are marked so the ones waiting for input stand out.
 # ctrl-x kills the highlighted window and refreshes the list in place.
-list="tmux list-windows -a -F '#{session_name}:#{window_index} #{?#{==:#{@claude_wait},ask},⏳ ,#{?#{==:#{@claude_wait},done},✅ ,}}#{window_name} │ #{pane_title}'"
+list="tmux list-windows -a -F '#{session_name}:#{window_index} #{?#{==:#{@claude_wait},ask},⏳ ,#{?#{==:#{@claude_wait},done},✅ ,#{?#{==:#{@claude_wait},running},🔄 ,#{?#{==:#{@claude_wait},idle},💤 ,}}}}#{window_name} │ #{pane_title}'"
 target=$(
   eval "$list" |
     fzf --reverse --prompt 'window> ' --header 'enter: switch  ctrl-x: kill' \
