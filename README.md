@@ -55,3 +55,12 @@ hooks to `~/.claude/settings.json` on a new machine:
   "PostToolUse":      [{ "matcher": "*", "hooks": [{ "type": "command", "command": "\"$HOME/.config/tmux/scripts/claude-wait.sh\" clear" }] }]
 }
 ```
+
+Windows are labelled by the conversation title Claude Code puts in the pane
+title. A session that starts with a slash command never gets one, so a window
+can override it with `@claude_label`, which stays until the window closes:
+
+```sh
+tmux set -w -t "$TMUX_PANE" @claude_label SD-12345  # set
+tmux set -wu @claude_label                           # back to the title
+```
