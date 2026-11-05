@@ -38,3 +38,20 @@ These are untracked on purpose (repo is public):
 | `~/.gitconfig` | Identity and URL rewrites |
 | `~/.config/fish/config-local.fish` | Credentials and work env vars |
 | `nvim/.../lua/plugins/local/` | Editor config tied to a specific employer |
+| `~/.claude/settings.json` | Claude Code settings; holds work context, so only its hooks are documented below |
+
+## Claude Code status in tmux
+
+`tmux/.config/tmux/scripts/claude-wait.sh` marks each tmux window with what its
+Claude Code session is doing: yellow ⏳ when it needs an answer, blue ✓ when it
+finished and you have not looked yet. Claude Code has to call it, so add these
+hooks to `~/.claude/settings.json` on a new machine:
+
+```json
+"hooks": {
+  "Notification":     [{ "hooks": [{ "type": "command", "command": "\"$HOME/.config/tmux/scripts/claude-wait.sh\" ask" }] }],
+  "Stop":             [{ "hooks": [{ "type": "command", "command": "\"$HOME/.config/tmux/scripts/claude-wait.sh\" done" }] }],
+  "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "\"$HOME/.config/tmux/scripts/claude-wait.sh\" clear" }] }],
+  "PostToolUse":      [{ "matcher": "*", "hooks": [{ "type": "command", "command": "\"$HOME/.config/tmux/scripts/claude-wait.sh\" clear" }] }]
+}
+```
