@@ -45,8 +45,9 @@ These are untracked on purpose (repo is public):
 `tmux/.config/tmux/scripts/claude-wait.sh` marks each tmux window with what its
 Claude Code session is doing: 🔄 while it works, yellow 💬 when it needs an
 answer, blue ✅ when it finished and you have not looked yet, 💤 once you have
-(or before the first prompt). Claude Code has to call it, so add these
-hooks to `~/.claude/settings.json` on a new machine:
+(or before the first prompt). A 💬 also raises a Ghostty desktop notification
+(OSC 777) unless that window is already in front of you. Claude Code has to call
+it, so add these hooks to `~/.claude/settings.json` on a new machine:
 
 ```json
 "hooks": {
