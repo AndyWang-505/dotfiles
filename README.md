@@ -43,7 +43,7 @@ These are untracked on purpose (repo is public):
 ## Claude Code status in tmux
 
 `tmux/.config/tmux/scripts/claude-wait.sh` marks each tmux window with what its
-Claude Code session is doing: yellow ⏳ when it needs an answer, blue ✓ when it
+Claude Code session is doing: yellow ⏳ when it needs an answer, blue ✅ when it
 finished and you have not looked yet. Claude Code has to call it, so add these
 hooks to `~/.claude/settings.json` on a new machine:
 
