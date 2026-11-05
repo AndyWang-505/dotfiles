@@ -13,3 +13,6 @@ background-blur-radius = 20
 # ssh-terminfo installs xterm-ghostty on the remote host, so TERM does not have
 # to be downgraded to xterm-256color to keep ssh usable
 shell-integration-features = ssh-env,ssh-terminfo
+
+# Sends tmux prefix (C-a) + f to open the fzf window switcher
+keybind = cmd+p=text:\x01f
