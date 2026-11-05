@@ -24,7 +24,7 @@ current=$(tmux display -p '#{session_name}:#{window_index}')
 position=$(awk -v window="$current" '$1 == window { print NR; exit }' <<<"$windows")
 target=$(
   printf '%s\n' "$windows" |
-    fzf --reverse --prompt 'window> ' --header 'enter: switch  ctrl-x: kill (asks first if Claude is active)' \
+    fzf --sync --reverse --prompt 'window> ' --header 'enter: switch  ctrl-x: kill (asks first if Claude is active)' \
       --bind "start:pos(${position:-1})" \
       --bind "ctrl-x:execute(\"${BASH_SOURCE[0]}\" kill {1})+reload($list)" \
       --preview 'tmux capture-pane -ep -t {1}' --preview-window 'right:60%'
