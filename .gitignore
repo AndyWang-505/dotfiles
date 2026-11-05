@@ -19,3 +19,7 @@ fish/.config/fish/config-local.fish
 nvim/.config/nvim/lua/config/local.lua
 nvim/.config/nvim/lua/plugins/local/*
 !nvim/.config/nvim/lua/plugins/local/init.lua
+
+# Worktree helper for one employer's monorepo; stowed from here but kept out of
+# this public repo.
+home/.local/bin/wt
