@@ -42,7 +42,7 @@ These are untracked on purpose (repo is public):
 | `~/.config/git/work.gitconfig` | Employer email |
 | `~/.config/fish/config-local.fish` | Credentials and work env vars |
 | `nvim/.../lua/plugins/local/` | Editor config tied to a specific employer |
-| `~/.claude/settings.json` | Claude Code settings; holds work context, so only its hooks are documented below |
+| `~/.claude/settings.json` | Claude Code settings; holds work context. `install.sh` only adds the tmux status hooks to it |
 
 ## Claude Code status in tmux
 
