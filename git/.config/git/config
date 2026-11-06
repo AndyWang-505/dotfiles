@@ -1,0 +1,13 @@
+# Machine-local settings (URL rewrites, employer identity) live in ~/.gitconfig,
+# which git reads after this file, so they win on conflict.
+[user]
+	name = andy505
+	# No default email: a repo that matches no identity below refuses to commit
+	# instead of falling back to a hostname-based address.
+	useConfigOnly = true
+[alias]
+	co = checkout
+[includeIf "hasconfig:remote.*.url:https://github.com/AndyWang505/**"]
+	path = personal.gitconfig
+[includeIf "hasconfig:remote.*.url:git@github.com:AndyWang505/**"]
+	path = personal.gitconfig

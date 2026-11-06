@@ -8,7 +8,7 @@ if [ "$(uname)" != Darwin ]; then
 fi
 
 DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PACKAGES=(home nvim tmux ghostty fish)
+PACKAGES=(home git nvim tmux ghostty fish)
 
 log() { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
 skip() { printf '    %s\n' "$*"; }
@@ -39,10 +39,12 @@ log "Installing packages from Brewfile"
 HOMEBREW_NO_INSTALL_CLEANUP=1 brew bundle install --no-upgrade --file="$DOTFILES_DIR/Brewfile"
 
 # ------------------------------------------------------- machine-local files --
-# git config is per-machine (identity, and URL rewrites that exist only because a
-# given work repo cannot be cloned over SSH here), so the repo ships none of it.
-# Written key by key rather than as one template: a ~/.gitconfig that another tool
-# already created still has to end up with the URL rewrite, which is the one
+# The git package carries name, aliases and the personal identity. ~/.gitconfig
+# holds what differs per machine: URL rewrites that exist only because a given
+# work repo cannot be cloned over SSH here, and the employer identity, which
+# names the employer and so stays out of this public repo.
+# Written key by key rather than as one template: a ~/.gitconfig that another
+# tool already created still has to end up with the URL rewrite, which is the one
 # setting here that is painful to rediscover.
 GITCONFIG="$HOME/.gitconfig"
 
@@ -50,19 +52,15 @@ if [ -f "$GITCONFIG" ]; then
   skip "~/.gitconfig exists"
 else
   log "Creating ~/.gitconfig"
-  printf '# Machine-local. Not tracked by the dotfiles repo.\n' >"$GITCONFIG"
+  cat >"$GITCONFIG" <<'EOF'
+# Machine-local. Not tracked by the dotfiles repo.
+# Employer identity, picked by the repo's remote:
+# [includeIf "hasconfig:remote.*.url:https://github.com/<org>/**"]
+# 	path = ~/.config/git/work.gitconfig
+EOF
 fi
 
-git config --file "$GITCONFIG" alias.co checkout
 git config --file "$GITCONFIG" url."https://github.com/".insteadOf "git@github.com:"
-
-# Deliberately no placeholder identity, but a missing one is not caught by git
-# either: it falls back to the macOS account's full name and a hostname-based
-# email and commits anyway. So warn when either key is missing.
-if ! git config --file "$GITCONFIG" --get user.name >/dev/null ||
-  ! git config --file "$GITCONFIG" --get user.email >/dev/null; then
-  WARNINGS+=("set user.name and user.email in $GITCONFIG")
-fi
 
 # --------------------------------------------------------------------- stow --
 # Simulate first: stow's own failure output is hard to act on mid-script.
@@ -174,7 +172,9 @@ fi
 cat <<EOF
 
 Left for you to do by hand:
-  - Put your real values in ~/.gitconfig and ~/.config/fish/config-local.fish
+  - Put your real values in ~/.config/fish/config-local.fish
+  - For work repos, uncomment the includeIf in ~/.gitconfig and put user.email
+    in ~/.config/git/work.gitconfig; until then git refuses to commit in them
   - ghostty runs fish already. Only chsh if you also want it as the login shell:
       echo \$(brew --prefix)/bin/fish | sudo tee -a /etc/shells
       chsh -s \$(brew --prefix)/bin/fish
