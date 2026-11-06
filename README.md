@@ -1,6 +1,6 @@
 # dotfiles
 
-Personal dotfiles managed with [GNU Stow](https://www.gnu.org/software/stow/).
+Personal dotfiles for Apple Silicon macOS, managed with [GNU Stow](https://www.gnu.org/software/stow/).
 
 ## Packages
 
@@ -19,7 +19,7 @@ Personal dotfiles managed with [GNU Stow](https://www.gnu.org/software/stow/).
 ## Install
 
 ```sh
-git clone https://github.com/AndyWang-505/dotfiles.git ~/dotfiles
+git clone https://github.com/AndyWang505/dotfiles.git ~/dotfiles
 cd ~/dotfiles
 ./install.sh
 ```
@@ -31,6 +31,12 @@ $EDITOR ~/.gitconfig                      # employer includeIf, see below
 $EDITOR ~/.config/git/work.gitconfig      # [user] email = ...
 $EDITOR ~/.config/fish/config-local.fish  # credentials, work env vars
 ```
+
+## Day to day
+
+Every tracked config is a symlink into `~/dotfiles`, so editing `~/.config/...`
+edits the repo. Commit from `~/dotfiles` afterwards. A new file needs
+`stow --restow <package>` from `~/dotfiles` before it shows up in `$HOME`.
 
 ## Machine-local files
 

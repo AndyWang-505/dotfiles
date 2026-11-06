@@ -2,8 +2,8 @@
 # Bootstrap a fresh macOS machine from this repo. Safe to re-run.
 set -euo pipefail
 
-if [ "$(uname)" != Darwin ]; then
-  echo "This script is macOS-only: it assumes Homebrew paths, pbcopy and the keychain." >&2
+if [ "$(uname)" != Darwin ] || [ "$(uname -m)" != arm64 ]; then
+  echo "This script is for Apple Silicon macOS only: it assumes Homebrew under /opt/homebrew and pbcopy." >&2
   exit 1
 fi
 
@@ -27,11 +27,7 @@ else
 fi
 
 # The installer does not touch the current shell's PATH.
-if [ -x /opt/homebrew/bin/brew ]; then
-  eval "$(/opt/homebrew/bin/brew shellenv)"
-elif [ -x /usr/local/bin/brew ]; then
-  eval "$(/usr/local/bin/brew shellenv)"
-fi
+eval "$(/opt/homebrew/bin/brew shellenv)"
 
 log "Installing packages from Brewfile"
 # --no-upgrade so re-running does not silently bump everything already installed;
