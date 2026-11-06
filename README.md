@@ -9,7 +9,7 @@ Personal dotfiles managed with [GNU Stow](https://www.gnu.org/software/stow/).
 | **home** | Files stowed directly to `$HOME` — ripgrep config (`~/.ripgreprc`) |
 | **git** | Name, aliases and the personal identity, picked by the repo's remote via `includeIf`. `user.useConfigOnly` makes git refuse to commit in a repo that matches no identity instead of guessing an email |
 | **claude** | Global Claude Code instructions (`~/.claude/CLAUDE.md`) only — the rest of `~/.claude` holds work context and stays machine-local |
-| **fish** | Interactive shell — [Fisher](https://github.com/jorgebucaran/fisher), [Tide](https://github.com/IlanCosman/tide) prompt, [nvm.fish](https://github.com/jorgebucaran/nvm.fish), abbreviations in `conf.d/abbr.fish` (`t` attaches the shared `main` tmux session) |
+| **fish** | Interactive shell — [Fisher](https://github.com/jorgebucaran/fisher), [Tide](https://github.com/IlanCosman/tide) prompt, [fnm](https://github.com/Schniz/fnm) (switches Node to a project's `.nvmrc` on `cd`), abbreviations in `conf.d/abbr.fish` (`t` attaches the shared `main` tmux session) |
 | **nvim** | Neovim config based on [LazyVim](https://www.lazyvim.org/) |
 | **tmux** | `C-a` prefix, vi-style copy mode, plugins via [TPM](https://github.com/tmux-plugins/tpm), fzf window picker on `prefix f` (`ctrl-x` kills a window, asking first if Claude is still active in it), new Claude Code window on `prefix C`, [Claude Code status](#claude-code-status-in-tmux) in the status bar |
 | **ghostty** | Terminal — tokyonight-night, transparent background, launches fish; `cmd+p` opens the tmux window picker, `cmd+shift+n` opens a new Claude Code window |

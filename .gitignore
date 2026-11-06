@@ -15,7 +15,6 @@ fish/.config/fish/completions/
 fish/.config/fish/functions/
 fish/.config/fish/themes/
 fish/.config/fish/conf.d/_tide_init.fish
-fish/.config/fish/conf.d/nvm.fish
 fish/.config/fish/fish_variables*
 fish/.config/fish/config-local.fish
 
