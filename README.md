@@ -1,6 +1,6 @@
 # dotfiles
 
-Personal dotfiles managed with [GNU Stow](https://www.gnu.org/software/stow/).
+Personal dotfiles for Apple Silicon macOS, managed with [GNU Stow](https://www.gnu.org/software/stow/).
 
 ## Packages
 
@@ -19,7 +19,7 @@ Personal dotfiles managed with [GNU Stow](https://www.gnu.org/software/stow/).
 ## Install
 
 ```sh
-git clone https://github.com/AndyWang-505/dotfiles.git ~/dotfiles
+git clone https://github.com/AndyWang505/dotfiles.git ~/dotfiles
 cd ~/dotfiles
 ./install.sh
 ```
@@ -32,6 +32,12 @@ $EDITOR ~/.config/git/work.gitconfig      # [user] email = ...
 $EDITOR ~/.config/fish/config-local.fish  # credentials, work env vars
 ```
 
+## Day to day
+
+Every tracked config is a symlink into `~/dotfiles`, so editing `~/.config/...`
+edits the repo. Commit from `~/dotfiles` afterwards. A new file needs
+`stow --restow <package>` from `~/dotfiles` before it shows up in `$HOME`.
+
 ## Machine-local files
 
 These are untracked on purpose (repo is public):
@@ -42,7 +48,7 @@ These are untracked on purpose (repo is public):
 | `~/.config/git/work.gitconfig` | Employer email |
 | `~/.config/fish/config-local.fish` | Credentials and work env vars |
 | `nvim/.../lua/plugins/local/` | Editor config tied to a specific employer |
-| `~/.claude/settings.json` | Claude Code settings; holds work context, so only its hooks are documented below |
+| `~/.claude/settings.json` | Claude Code settings; holds work context. `install.sh` only adds the tmux status hooks to it |
 
 ## Claude Code status in tmux
 
@@ -51,18 +57,8 @@ Claude Code session is doing: 🔄 while it works, yellow 💬 when it needs an
 answer, blue ✅ when it finished and you have not looked yet, 💤 once you have
 (or before the first prompt). A 💬 also raises a Ghostty desktop notification
 (OSC 777) unless that window is already in front of you. Claude Code has to call
-it, so add these hooks to `~/.claude/settings.json` on a new machine:
-
-```json
-"hooks": {
-  "Notification":     [{ "hooks": [{ "type": "command", "command": "\"$HOME/.config/tmux/scripts/claude-wait.sh\" ask" }] }],
-  "Stop":             [{ "hooks": [{ "type": "command", "command": "\"$HOME/.config/tmux/scripts/claude-wait.sh\" done" }] }],
-  "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "\"$HOME/.config/tmux/scripts/claude-wait.sh\" run" }] }],
-  "PostToolUse":      [{ "matcher": "*", "hooks": [{ "type": "command", "command": "\"$HOME/.config/tmux/scripts/claude-wait.sh\" run" }] }],
-  "SessionStart":     [{ "matcher": "startup|resume|clear", "hooks": [{ "type": "command", "command": "\"$HOME/.config/tmux/scripts/claude-wait.sh\" idle" }] }],
-  "SessionEnd":       [{ "hooks": [{ "type": "command", "command": "\"$HOME/.config/tmux/scripts/claude-wait.sh\" clear" }] }]
-}
-```
+it from its hooks, which `install.sh` adds to `~/.claude/settings.json`, leaving
+any other hooks there alone.
 
 Windows are labelled by the conversation title Claude Code puts in the pane
 title. A session that starts with a slash command never gets one, so a window
