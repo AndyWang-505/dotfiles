@@ -2,6 +2,11 @@
 *.swp
 *.swo
 **/.claude/
+# The claude package tracks only the global CLAUDE.md; settings, memory and
+# skills under ~/.claude hold work context and stay out of this public repo.
+!claude/.claude/
+claude/.claude/*
+!claude/.claude/CLAUDE.md
 
 # stow folds a package's directory into a single symlink, so anything a plugin
 # manager writes under it lands inside this repo.
