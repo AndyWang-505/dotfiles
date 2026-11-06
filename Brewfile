@@ -20,6 +20,9 @@ brew "lazygit"
 # img-clip.nvim's only clipboard source on macOS
 brew "pngpaste"
 
+# claude-wait.sh reads hook payloads, install.sh merges the hooks into settings
+brew "jq"
+
 # Node toolchain
 brew "fnm"
 brew "pnpm"

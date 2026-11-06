@@ -51,18 +51,8 @@ Claude Code session is doing: 🔄 while it works, yellow 💬 when it needs an
 answer, blue ✅ when it finished and you have not looked yet, 💤 once you have
 (or before the first prompt). A 💬 also raises a Ghostty desktop notification
 (OSC 777) unless that window is already in front of you. Claude Code has to call
-it, so add these hooks to `~/.claude/settings.json` on a new machine:
-
-```json
-"hooks": {
-  "Notification":     [{ "hooks": [{ "type": "command", "command": "\"$HOME/.config/tmux/scripts/claude-wait.sh\" ask" }] }],
-  "Stop":             [{ "hooks": [{ "type": "command", "command": "\"$HOME/.config/tmux/scripts/claude-wait.sh\" done" }] }],
-  "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "\"$HOME/.config/tmux/scripts/claude-wait.sh\" run" }] }],
-  "PostToolUse":      [{ "matcher": "*", "hooks": [{ "type": "command", "command": "\"$HOME/.config/tmux/scripts/claude-wait.sh\" run" }] }],
-  "SessionStart":     [{ "matcher": "startup|resume|clear", "hooks": [{ "type": "command", "command": "\"$HOME/.config/tmux/scripts/claude-wait.sh\" idle" }] }],
-  "SessionEnd":       [{ "hooks": [{ "type": "command", "command": "\"$HOME/.config/tmux/scripts/claude-wait.sh\" clear" }] }]
-}
-```
+it from its hooks, which `install.sh` adds to `~/.claude/settings.json`, leaving
+any other hooks there alone.
 
 Windows are labelled by the conversation title Claude Code puts in the pane
 title. A session that starts with a slash command never gets one, so a window

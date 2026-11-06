@@ -94,6 +94,53 @@ fi
 log "Installing tmux plugins"
 try "$TPM_DIR/bin/install_plugins"
 
+# -------------------------------------------------------------------- claude --
+# Not in the Brewfile: an npm-installed claude already owns
+# /opt/homebrew/bin/claude on some machines, and the cask would fail to link
+# over it and abort brew bundle.
+if command -v claude >/dev/null 2>&1; then
+  skip "Claude Code already installed"
+else
+  log "Installing Claude Code"
+  try bash -c 'curl -fsSL https://claude.ai/install.sh | bash'
+fi
+
+# The tmux status marks only move if Claude Code calls claude-wait.sh. Each
+# event is added only when no hook of it mentions the script yet, so re-runs
+# and hooks added by hand are left alone.
+CLAUDE_SETTINGS="$HOME/.claude/settings.json"
+CLAUDE_WAIT='"$HOME/.config/tmux/scripts/claude-wait.sh"'
+claude_wait_hooks=$(jq -n --arg wait "$CLAUDE_WAIT" '
+  def hook($arg): [{hooks: [{type: "command", command: "\($wait) \($arg)"}]}];
+  {
+    Notification: hook("ask"),
+    Stop: hook("done"),
+    UserPromptSubmit: hook("run"),
+    PostToolUse: (hook("run") | .[0].matcher = "*"),
+    SessionStart: (hook("idle") | .[0].matcher = "startup|resume|clear"),
+    SessionEnd: hook("clear")
+  }')
+
+[ -f "$CLAUDE_SETTINGS" ] || echo '{}' >"$CLAUDE_SETTINGS"
+settings_tmp=$(mktemp)
+if jq --argjson add "$claude_wait_hooks" '
+  .hooks //= {}
+  | reduce ($add | to_entries[]) as $event (.;
+      if (.hooks[$event.key] // [] | tostring | contains("claude-wait.sh")) then .
+      else .hooks[$event.key] = (.hooks[$event.key] // []) + $event.value end)
+' "$CLAUDE_SETTINGS" >"$settings_tmp"; then
+  if [ "$(jq -S . "$settings_tmp")" = "$(jq -S . "$CLAUDE_SETTINGS")" ]; then
+    skip "Claude Code hooks already set"
+    rm -f "$settings_tmp"
+  else
+    log "Adding claude-wait.sh hooks to $CLAUDE_SETTINGS"
+    mv "$settings_tmp" "$CLAUDE_SETTINGS"
+  fi
+else
+  rm -f "$settings_tmp"
+  WARNINGS+=("add the claude-wait.sh hooks to $CLAUDE_SETTINGS: it is not valid JSON")
+fi
+
 # ---------------------------------------------------------------------- fish --
 # fisher lists itself in fish_plugins, so bootstrapping it is enough.
 if fish -c 'functions -q fisher' 2>/dev/null; then
