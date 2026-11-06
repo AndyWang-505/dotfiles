@@ -69,6 +69,6 @@ title. A session that starts with a slash command never gets one, so a window
 can override it with `@claude_label`, which stays until the window closes:
 
 ```sh
-tmux set -w -t "$TMUX_PANE" @claude_label SD-12345  # set
+tmux set -w -t "$TMUX_PANE" @claude_label PROJ-123   # set
 tmux set -wu @claude_label                           # back to the title
 ```
