@@ -8,7 +8,7 @@ if [ "$(uname)" != Darwin ]; then
 fi
 
 DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PACKAGES=(home git nvim tmux ghostty fish)
+PACKAGES=(home git claude nvim tmux ghostty fish)
 
 log() { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
 skip() { printf '    %s\n' "$*"; }
@@ -63,6 +63,10 @@ fi
 git config --file "$GITCONFIG" url."https://github.com/".insteadOf "git@github.com:"
 
 # --------------------------------------------------------------------- stow --
+# Without an existing ~/.claude, stow would link the whole directory into this
+# repo, and Claude Code would then write its sessions and credentials here.
+mkdir -p "$HOME/.claude"
+
 # Simulate first: stow's own failure output is hard to act on mid-script.
 if ! conflicts=$(stow --dir="$DOTFILES_DIR" --target="$HOME" --no --restow "${PACKAGES[@]}" 2>&1); then
   printf '%s\n' "$conflicts" >&2
