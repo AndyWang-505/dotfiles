@@ -1,6 +1,6 @@
-# PATH is built here rather than in config.fish because conf.d runs first: nvm.fish
-# activates a Node version from conf.d with `set --prepend PATH`, and anything that
-# rebuilds or reorders PATH afterwards would bury it behind brew's node.
+# PATH is built here rather than in config.fish because conf.d runs first:
+# fnm.fish puts its Node in front from conf.d, and anything that rebuilds or
+# reorders PATH afterwards would bury it behind brew's node.
 
 # ghostty starts fish directly rather than through a login shell, so nothing has
 # run path_helper and PATH is the bare launchd default: no /usr/local/bin, no
@@ -19,11 +19,3 @@ set -gx PNPM_HOME $HOME/Library/pnpm
 # from fish these entries are already on PATH and would otherwise keep brew's
 # position ahead of them — putting brew's node and claude back in front.
 fish_add_path --global --move --path $HOME/.local/bin $PNPM_HOME
-
-# nvm.fish reads $nvm_data/<version>/bin, the layout the brew nvm that zsh sources
-# already writes, so pointing it here gives both shells one set of Node installs.
-# Not `set -U` — the plugin's own update handler erases the universal one.
-#
-# The trade-off: the plugin's uninstall event runs `rm -rf $nvm_data`, so removing
-# nvm.fish takes zsh's Node installs with it.
-set -gx nvm_data $HOME/.nvm/versions/node

@@ -119,32 +119,14 @@ EOF
 fi
 
 # ---------------------------------------------------------------------- node --
-# The Brewfile installs nvm, which ships no Node version of its own. Without one
-# mason cannot install the npm-backed tooling the typescript, eslint and prettier
-# extras rely on.
-#
-# nvm.fish creates ~/.nvm/versions/node (holding only an .index) when fisher
-# installs it above, so only an actual version under it counts.
-if ls -d "$HOME"/.nvm/versions/node/v*/ >/dev/null 2>&1; then
+# fnm ships no Node of its own. Without one mason cannot install the npm-backed
+# tooling the typescript, eslint and prettier extras rely on.
+if [ -n "$(fnm list | grep -v system)" ]; then
   skip "Node already installed"
 else
   log "Installing the LTS Node version"
-  try bash -c 'export NVM_DIR="$HOME/.nvm"; mkdir -p "$NVM_DIR"; . "$(brew --prefix nvm)/nvm.sh"; nvm install --lts'
-fi
-
-# nvm.fish puts a version on PATH only when nvm_default_version is set, and the
-# bash nvm install above sets just nvm's own default alias. Pinning fish to that
-# alias keeps both shells on the same Node.
-if fish -c 'set -q nvm_default_version' 2>/dev/null; then
-  skip "nvm_default_version already set"
-else
-  node_default=$(bash -c 'export NVM_DIR="$HOME/.nvm"; . "$(brew --prefix nvm)/nvm.sh"; nvm version default' 2>/dev/null || true)
-  if [ -n "$node_default" ] && [ "$node_default" != N/A ]; then
-    log "Setting nvm_default_version to $node_default"
-    try fish -c "set -U nvm_default_version $node_default"
-  else
-    WARNINGS+=("set nvm_default_version in fish: no default Node version found")
-  fi
+  try fnm install --lts
+  try fnm default lts-latest
 fi
 
 # ---------------------------------------------------------------------- nvim --

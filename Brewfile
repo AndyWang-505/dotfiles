@@ -21,7 +21,7 @@ brew "lazygit"
 brew "pngpaste"
 
 # Node toolchain
-brew "nvm"
+brew "fnm"
 brew "pnpm"
 
 cask "ghostty"
