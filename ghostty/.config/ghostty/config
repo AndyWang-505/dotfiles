@@ -19,3 +19,9 @@ keybind = cmd+p=text:\x01f
 
 # Sends tmux prefix (C-a) + C to open a new window running claude
 keybind = cmd+shift+n=text:\x01C
+
+# Sends tmux prefix (C-a) + e to review the window's uncommitted changes
+keybind = cmd+r=text:\x01e
+
+# Sends tmux prefix (C-a) + R to review everything the branch changed
+keybind = cmd+shift+r=text:\x01R
