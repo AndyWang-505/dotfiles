@@ -98,7 +98,9 @@ if command -v claude >/dev/null 2>&1; then
   skip "Claude Code already installed"
 else
   log "Installing Claude Code"
-  try bash -c 'curl -fsSL https://claude.ai/install.sh | bash'
+  # Without pipefail a failed download pipes nothing into bash, which exits 0,
+  # and the failure never reaches WARNINGS.
+  try bash -c 'set -o pipefail; curl -fsSL https://claude.ai/install.sh | bash'
 fi
 
 # The tmux status marks only move if Claude Code calls claude-wait.sh. Each
