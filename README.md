@@ -18,29 +18,53 @@ Personal dotfiles for Apple Silicon macOS, managed with [GNU Stow](https://www.g
 
 ## Install
 
-A fresh Mac has no working `git` until the Xcode Command Line Tools are
-installed; the first `git` call opens their installer instead. Install them
-first and wait for the dialog to finish:
+Run these from the built-in Terminal app: Ghostty is one of the things
+`install.sh` installs.
 
-```sh
-xcode-select --install
-```
+1. Install the Xcode Command Line Tools. A fresh Mac has no working `git` until
+   they are in, and the first `git` call only opens their installer. Wait for
+   the dialog to finish.
 
-Then:
+   ```sh
+   xcode-select --install
+   ```
 
-```sh
-git clone https://github.com/AndyWang505/dotfiles.git ~/dotfiles
-cd ~/dotfiles
-./install.sh
-```
+2. Clone the repo and run the installer. Homebrew asks for your password and
+   for Enter, and the first run takes a while.
 
-`install.sh` is idempotent. After it runs, fill in machine-local values:
+   ```sh
+   git clone https://github.com/AndyWang505/dotfiles.git ~/dotfiles
+   cd ~/dotfiles
+   ./install.sh
+   ```
 
-```sh
-$EDITOR ~/.gitconfig                      # employer includeIf, see below
-$EDITOR ~/.config/git/work.gitconfig      # [user] email = ...
-$EDITOR ~/.config/fish/config-local.fish  # credentials, work env vars
-```
+`install.sh` is idempotent. When it stops, or ends with a list of failed steps,
+fix what it names and run it again.
+
+### After the first run
+
+`install.sh` prints the same list when it finishes. Do these in Ghostty:
+Terminal's zsh does not have Homebrew on its PATH, so `nvim` and `brew` are not
+found there.
+
+1. Open Ghostty. It starts fish; `t` attaches the shared tmux session.
+2. Fill in the [machine-local files](#machine-local-files). Until
+   `work.gitconfig` has an email, git refuses to commit in work repos.
+
+   ```sh
+   nvim ~/.gitconfig                      # uncomment the employer includeIf
+   nvim ~/.config/git/work.gitconfig      # [user] email = ...
+   nvim ~/.config/fish/config-local.fish  # credentials, work env vars
+   ```
+
+3. Run `claude` once to sign in.
+4. Optional: Ghostty already runs fish. Only if you also want it as the login
+   shell:
+
+   ```sh
+   echo $(brew --prefix)/bin/fish | sudo tee -a /etc/shells
+   chsh -s $(brew --prefix)/bin/fish
+   ```
 
 ## Day to day
 

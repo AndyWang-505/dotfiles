@@ -208,11 +208,17 @@ fi
 
 cat <<EOF
 
-Left for you to do by hand:
-  - Put your real values in ~/.config/fish/config-local.fish
-  - For work repos, uncomment the includeIf in ~/.gitconfig and put user.email
-    in ~/.config/git/work.gitconfig; until then git refuses to commit in them
-  - ghostty runs fish already. Only chsh if you also want it as the login shell:
-      echo \$(brew --prefix)/bin/fish | sudo tee -a /etc/shells
-      chsh -s \$(brew --prefix)/bin/fish
+Next steps (also in the README, under "After the first run"). Do them in
+Ghostty: Terminal's zsh does not have Homebrew on its PATH.
+  1. Open Ghostty. It starts fish; \`t\` attaches the shared tmux session.
+  2. Fill in the machine-local files. Until work.gitconfig has an email, git
+     refuses to commit in work repos.
+       nvim ~/.gitconfig                      # uncomment the employer includeIf
+       nvim ~/.config/git/work.gitconfig      # [user] email = ...
+       nvim ~/.config/fish/config-local.fish  # credentials, work env vars
+  3. Run \`claude\` once to sign in.
+  4. Optional: Ghostty already runs fish. Only if you also want it as the login
+     shell:
+       echo \$(brew --prefix)/bin/fish | sudo tee -a /etc/shells
+       chsh -s \$(brew --prefix)/bin/fish
 EOF
