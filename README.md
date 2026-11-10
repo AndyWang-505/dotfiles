@@ -11,8 +11,8 @@ Personal dotfiles for Apple Silicon macOS, managed with [GNU Stow](https://www.g
 | **claude** | Global Claude Code instructions (`~/.claude/CLAUDE.md`) only — the rest of `~/.claude` holds work context and stays machine-local |
 | **fish** | Interactive shell — [Fisher](https://github.com/jorgebucaran/fisher), [Tide](https://github.com/IlanCosman/tide) prompt, [fnm](https://github.com/Schniz/fnm) (switches Node to a project's `.nvmrc` on `cd`), abbreviations in `conf.d/abbr.fish` (`t` attaches the shared `main` tmux session) |
 | **nvim** | Neovim config based on [LazyVim](https://www.lazyvim.org/) |
-| **tmux** | `C-a` prefix, vi-style copy mode, plugins via [TPM](https://github.com/tmux-plugins/tpm), fzf window picker on `prefix f` (`ctrl-x` kills a window, asking first if Claude is still active in it), new Claude Code window on `prefix C`, [Claude Code status](#claude-code-status-in-tmux) in the status bar |
-| **ghostty** | Terminal — tokyonight-night, transparent background, launches fish; `cmd+p` opens the tmux window picker, `cmd+shift+n` opens a new Claude Code window |
+| **tmux** | `C-a` prefix, vi-style copy mode, plugins via [TPM](https://github.com/tmux-plugins/tpm), fzf window picker on `prefix f` (`ctrl-x` kills a window, asking first if Claude is still active in it), new Claude Code window on `prefix C`, uncommitted changes of the window's repo or worktree in a diffview popup on `prefix e`, [Claude Code status](#claude-code-status-in-tmux) in the status bar |
+| **ghostty** | Terminal — tokyonight-night, transparent background, launches fish; `cmd+p` opens the tmux window picker, `cmd+shift+n` opens a new Claude Code window, `cmd+r` opens the diffview popup |
 
 > **zsh** is intentionally not a package — it is only the login shell and gets its PATH from `/etc/paths`.
 
