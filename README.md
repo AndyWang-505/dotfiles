@@ -11,7 +11,7 @@ Personal dotfiles for Apple Silicon macOS, managed with [GNU Stow](https://www.g
 | **claude** | Global Claude Code instructions (`~/.claude/CLAUDE.md`) only — the rest of `~/.claude` holds work context and stays machine-local |
 | **fish** | Interactive shell — [Fisher](https://github.com/jorgebucaran/fisher), [Tide](https://github.com/IlanCosman/tide) prompt, [fnm](https://github.com/Schniz/fnm) (switches Node to a project's `.nvmrc` on `cd`), abbreviations in `conf.d/abbr.fish` (`t` attaches the shared `main` tmux session) |
 | **nvim** | Neovim config based on [LazyVim](https://www.lazyvim.org/) |
-| **tmux** | `C-a` prefix, vi-style copy mode, plugins via [TPM](https://github.com/tmux-plugins/tpm), and the [Claude Code workflow](#claude-code-in-tmux): window picker, new-window picker, review popups and [status marks](#claude-code-status-in-tmux) in the status bar |
+| **tmux** | `C-a` prefix, vi-style copy mode, plugins via [TPM](https://github.com/tmux-plugins/tpm), and the [Claude Code workflow](#claude-code-in-tmux): window picker, new-window picker, status marks and review popups |
 | **ghostty** | Terminal — tokyonight-night, transparent background, launches fish; `cmd` shortcuts for the [Claude Code workflow](#claude-code-in-tmux) |
 
 > **zsh** is intentionally not a package — it is only the login shell and gets its PATH from `/etc/paths`.
@@ -35,8 +35,36 @@ $EDITOR ~/.config/fish/config-local.fish  # credentials, work env vars
 ## Day to day
 
 Every tracked config is a symlink into `~/dotfiles`, so editing `~/.config/...`
-edits the repo. Commit from `~/dotfiles` afterwards. A new file needs
-`stow --restow <package>` from `~/dotfiles` before it shows up in `$HOME`.
+edits the repo. A new file needs `stow --restow <package>` from `~/dotfiles`
+before it shows up in `$HOME`.
+
+A new package is a directory laid out like `$HOME`, added to `PACKAGES` in
+`install.sh`. When a directory it stows into does not exist yet, stow links the
+whole directory into the repo, so whatever the program later writes there lands
+in `~/dotfiles`. If the program writes into that directory, create it before
+stowing and add the same `mkdir -p` to `install.sh`, as it does for
+`~/.claude`.
+
+Running programs pick up an edit as follows:
+
+| Config | Takes effect |
+|--------|--------------|
+| tmux | `tmux source-file ~/.config/tmux/tmux.conf` |
+| Ghostty | `cmd+shift+,` |
+| nvim | Next time nvim starts, review popups included |
+| fish | New shell, or `exec fish` |
+
+`install.sh` puts nvim plugins back to the versions in
+`nvim/.config/nvim/lazy-lock.json`, so after `:Lazy update` commit that file, or
+the next run rolls the plugins back.
+
+Changes go in through PRs. This clone pushes branches to a fork (`origin`) and
+opens PRs against `upstream`. Once one merges:
+
+```sh
+git switch main && git pull upstream main
+git push origin main   # bring the fork along
+```
 
 ## Machine-local files
 
@@ -52,29 +80,27 @@ These are untracked on purpose (repo is public):
 
 ## Claude Code in tmux
 
-Each Claude Code session runs as its own tmux window, started in the repo or
-worktree it works on. The window's directory decides what its status mark, its
-review popups and Claude Code's own `/diff` show, so a session meant for a
-worktree is started there rather than pointed at it from the main repo.
+Every Claude Code session gets its own tmux window, started in the repo or
+worktree it works on. Pick that directory with `cmd+shift+n` when opening the
+window: a running session cannot move, and its review popups and `/diff` look
+at the directory it started in.
 
 | Ghostty | tmux | Does |
 |---------|------|------|
-| `cmd+p` | `prefix f` | Window picker with a live preview of each window; `ctrl-x` kills a window, asking first if Claude is still active in it |
-| `cmd+shift+n` | `prefix C` | New Claude Code window in a directory picked from the current one, every worktree of its repo, and where Claude Code has run before (most recent first). `enter` starts a new conversation, `ctrl-o` continues that directory's last one |
-| `cmd+r` | `prefix e` | Review popup with the window's uncommitted changes, untracked files included |
-| `cmd+shift+r` | `prefix R` | Review popup with everything the branch changed since it forked from its base, committed or not; untracked files are not listed |
+| `cmd+p` | `prefix f` | Switch windows, with a live preview of each; `ctrl-x` kills one, asking first if Claude is still active in it |
+| `cmd+shift+n` | `prefix C` | New Claude Code window in a directory you pick |
+| `cmd+r` | `prefix e` | Review the window's uncommitted changes |
+| `cmd+shift+r` | `prefix R` | Review everything the window's branch changed |
 
-The branch review's base is the open PR's base branch. Without a PR it is
-whichever of the newest `release/*` and the default branch the current branch
-forked from most recently, taken from `upstream` in a fork and from `origin`
-otherwise.
+### New window picker
 
-The review popups open nvim with diffview and nothing else: no bufferline,
-`<S-h>` / `<S-l>` step through the changed files, and closing the diffview
-(`:qa`, `<leader>gq` or `:DiffviewClose`) closes the popup. Edits in the diff
-are real files; unsaved ones are asked about before it closes.
+Lists the current directory, every worktree of its repo, then the directories
+Claude Code has run in, most recent first. `enter` starts a new conversation
+there, `ctrl-o` continues that directory's last one. A directory joins the list
+once Claude Code has run in it; before that, `cd` there and pick the current
+directory.
 
-## Claude Code status in tmux
+### Status marks
 
 `tmux/.config/tmux/scripts/claude-wait.sh` marks each tmux window with what its
 Claude Code session is doing: 🔄 while it works, yellow 💬 when it needs an
@@ -92,3 +118,17 @@ can override it with `@claude_label`, which stays until the window closes:
 tmux set -w -t "$TMUX_PANE" @claude_label PROJ-123   # set
 tmux set -wu @claude_label                           # back to the title
 ```
+
+### Review popups
+
+Both open nvim with diffview on the window's repo or worktree. The right side
+is the real file, so it can be edited and saved there. `<S-h>` / `<S-l>` step
+through the changed files, and closing the diffview (`:qa`, `<leader>gq` or
+`:DiffviewClose`) closes the popup, asking first about unsaved edits.
+
+`cmd+r` lists the uncommitted changes, untracked files included. `cmd+shift+r`
+lists everything since the branch forked from its base, committed or not, but
+not untracked files. The base is the open PR's base branch; without a PR it is
+whichever of the newest `release/*` and the default branch the branch forked
+from most recently, taken from `upstream` in a fork and from `origin`
+otherwise.
