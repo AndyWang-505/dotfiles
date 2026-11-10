@@ -18,6 +18,16 @@ Personal dotfiles for Apple Silicon macOS, managed with [GNU Stow](https://www.g
 
 ## Install
 
+A fresh Mac has no working `git` until the Xcode Command Line Tools are
+installed; the first `git` call opens their installer instead. Install them
+first and wait for the dialog to finish:
+
+```sh
+xcode-select --install
+```
+
+Then:
+
 ```sh
 git clone https://github.com/AndyWang505/dotfiles.git ~/dotfiles
 cd ~/dotfiles

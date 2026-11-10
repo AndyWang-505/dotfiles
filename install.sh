@@ -23,7 +23,13 @@ if command -v brew >/dev/null 2>&1; then
   skip "Homebrew already installed"
 else
   log "Installing Homebrew"
-  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  # A failed download would hand bash an empty script, which exits 0, and the
+  # run would only stop later at a confusing "brew: command not found".
+  brew_installer=$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh) || {
+    echo "Could not download the Homebrew installer. Check the network and re-run." >&2
+    exit 1
+  }
+  /bin/bash -c "$brew_installer"
 fi
 
 # The installer does not touch the current shell's PATH.
