@@ -76,14 +76,15 @@ These are untracked on purpose (repo is public):
 | `~/.config/git/work.gitconfig` | Employer email |
 | `~/.config/fish/config-local.fish` | Credentials and work env vars |
 | `nvim/.../lua/plugins/local/` | Editor config tied to a specific employer |
-| `~/.claude/settings.json` | Claude Code settings; holds work context. `install.sh` only adds the tmux status hooks to it |
+| `~/.claude/settings.json` | Claude Code settings; holds work context. `install.sh` only adds the tmux hooks to it |
 
 ## Claude Code in tmux
 
 Every Claude Code session gets its own tmux window, started in the repo or
 worktree it works on. Pick that directory with `cmd+shift+n` when opening the
-window: a running session cannot move, and its review popups and `/diff` look
-at the directory it started in.
+window: a running session cannot move, and `/diff` looks at the directory it
+started in. The review popups also follow the repos and worktrees Claude edits
+from the window, such as an autofix worktree.
 
 | Ghostty | tmux | Does |
 |---------|------|------|
@@ -125,6 +126,15 @@ Both open nvim with diffview on the window's repo or worktree. The right side
 is the real file, so it can be edited and saved there. `<S-h>` / `<S-l>` step
 through the changed files, and closing the diffview (`:qa`, `<leader>gq` or
 `:DiffviewClose`) closes the popup, asking first about unsaved edits.
+
+`tmux/.config/tmux/scripts/review-dirs.sh` records every repo or worktree
+Claude Code edits a file in (`Edit`, `Write`, `NotebookEdit`) in the window
+option `@review_dirs`; `install.sh` adds it to the hooks. Files changed only
+through shell commands are not recorded. When any recorded directory has
+something to show, the popup lists them, newest first, with the window's own
+directory on top if it has changes too and left out if it has none; a single
+choice opens directly. Closing the diffview then returns to the list, and `esc`
+closes the popup.
 
 `cmd+r` lists the uncommitted changes, untracked files included. `cmd+shift+r`
 lists everything since the branch forked from its base, committed or not, but
