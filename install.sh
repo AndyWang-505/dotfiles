@@ -101,40 +101,44 @@ else
   try bash -c 'curl -fsSL https://claude.ai/install.sh | bash'
 fi
 
-# The tmux status marks only move if Claude Code calls claude-wait.sh. Each
-# event is added only when no hook of it mentions the script yet, so re-runs
-# and hooks added by hand are left alone.
+# The tmux status marks only move if Claude Code calls claude-wait.sh, and the
+# review popups only find the worktrees Claude edited if it calls
+# review-dirs.sh. Each script is added to an event only when no hook of that
+# event mentions it yet, so re-runs and hooks added by hand are left alone.
 CLAUDE_SETTINGS="$HOME/.claude/settings.json"
-CLAUDE_WAIT='"$HOME/.config/tmux/scripts/claude-wait.sh"'
-claude_wait_hooks=$(jq -n --arg wait "$CLAUDE_WAIT" '
-  def hook($arg): [{hooks: [{type: "command", command: "\($wait) \($arg)"}]}];
-  {
-    Notification: hook("ask"),
-    Stop: hook("done"),
-    UserPromptSubmit: hook("run"),
-    PostToolUse: (hook("run") | .[0].matcher = "*"),
-    SessionStart: (hook("idle") | .[0].matcher = "startup|resume|clear"),
-    SessionEnd: hook("clear")
-  }')
+claude_hooks=$(jq -n '
+  def hook($event; $script; $arg; $matcher):
+    {event: $event, script: $script,
+     entry: ({hooks: [{type: "command", command: "\"$HOME/.config/tmux/scripts/\($script)\"\($arg)"}]}
+       + if $matcher then {matcher: $matcher} else {} end)};
+  [
+    hook("Notification"; "claude-wait.sh"; " ask"; null),
+    hook("Stop"; "claude-wait.sh"; " done"; null),
+    hook("UserPromptSubmit"; "claude-wait.sh"; " run"; null),
+    hook("PostToolUse"; "claude-wait.sh"; " run"; "*"),
+    hook("PostToolUse"; "review-dirs.sh"; ""; "Edit|Write|MultiEdit|NotebookEdit"),
+    hook("SessionStart"; "claude-wait.sh"; " idle"; "startup|resume|clear"),
+    hook("SessionEnd"; "claude-wait.sh"; " clear"; null)
+  ]')
 
 [ -f "$CLAUDE_SETTINGS" ] || echo '{}' >"$CLAUDE_SETTINGS"
 settings_tmp=$(mktemp)
-if jq --argjson add "$claude_wait_hooks" '
+if jq --argjson add "$claude_hooks" '
   .hooks //= {}
-  | reduce ($add | to_entries[]) as $event (.;
-      if (.hooks[$event.key] // [] | tostring | contains("claude-wait.sh")) then .
-      else .hooks[$event.key] = (.hooks[$event.key] // []) + $event.value end)
+  | reduce $add[] as $hook (.;
+      if (.hooks[$hook.event] // [] | tostring | contains($hook.script)) then .
+      else .hooks[$hook.event] += [$hook.entry] end)
 ' "$CLAUDE_SETTINGS" >"$settings_tmp"; then
   if [ "$(jq -S . "$settings_tmp")" = "$(jq -S . "$CLAUDE_SETTINGS")" ]; then
     skip "Claude Code hooks already set"
     rm -f "$settings_tmp"
   else
-    log "Adding claude-wait.sh hooks to $CLAUDE_SETTINGS"
+    log "Adding the tmux hooks to $CLAUDE_SETTINGS"
     mv "$settings_tmp" "$CLAUDE_SETTINGS"
   fi
 else
   rm -f "$settings_tmp"
-  WARNINGS+=("add the claude-wait.sh hooks to $CLAUDE_SETTINGS: it is not valid JSON")
+  WARNINGS+=("add the tmux hooks to $CLAUDE_SETTINGS: it is not valid JSON")
 fi
 
 # ---------------------------------------------------------------------- fish --
