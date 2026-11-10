@@ -11,8 +11,8 @@ Personal dotfiles for Apple Silicon macOS, managed with [GNU Stow](https://www.g
 | **claude** | Global Claude Code instructions (`~/.claude/CLAUDE.md`) only — the rest of `~/.claude` holds work context and stays machine-local |
 | **fish** | Interactive shell — [Fisher](https://github.com/jorgebucaran/fisher), [Tide](https://github.com/IlanCosman/tide) prompt, [fnm](https://github.com/Schniz/fnm) (switches Node to a project's `.nvmrc` on `cd`), abbreviations in `conf.d/abbr.fish` (`t` attaches the shared `main` tmux session) |
 | **nvim** | Neovim config based on [LazyVim](https://www.lazyvim.org/) |
-| **tmux** | `C-a` prefix, vi-style copy mode, plugins via [TPM](https://github.com/tmux-plugins/tpm), fzf window picker on `prefix f` (`ctrl-x` kills a window, asking first if Claude is still active in it), new Claude Code window on `prefix C` in a directory picked from the current one, its repo's worktrees and where Claude Code has run before (`ctrl-o` continues that directory's last conversation), uncommitted changes of the window's repo or worktree in a diffview popup on `prefix e`, and everything the branch changed since it forked from its base (the PR's base branch, else whichever of the newest `release/*` and the default branch it forked from most recently) on `prefix R`, [Claude Code status](#claude-code-status-in-tmux) in the status bar |
-| **ghostty** | Terminal — tokyonight-night, transparent background, launches fish; `cmd+p` opens the tmux window picker, `cmd+shift+n` opens the new Claude Code window picker, `cmd+r` / `cmd+shift+r` open the uncommitted / whole-branch diffview popups |
+| **tmux** | `C-a` prefix, vi-style copy mode, plugins via [TPM](https://github.com/tmux-plugins/tpm), and the [Claude Code workflow](#claude-code-in-tmux): window picker, new-window picker, review popups and [status marks](#claude-code-status-in-tmux) in the status bar |
+| **ghostty** | Terminal — tokyonight-night, transparent background, launches fish; `cmd` shortcuts for the [Claude Code workflow](#claude-code-in-tmux) |
 
 > **zsh** is intentionally not a package — it is only the login shell and gets its PATH from `/etc/paths`.
 
@@ -49,6 +49,30 @@ These are untracked on purpose (repo is public):
 | `~/.config/fish/config-local.fish` | Credentials and work env vars |
 | `nvim/.../lua/plugins/local/` | Editor config tied to a specific employer |
 | `~/.claude/settings.json` | Claude Code settings; holds work context. `install.sh` only adds the tmux status hooks to it |
+
+## Claude Code in tmux
+
+Each Claude Code session runs as its own tmux window, started in the repo or
+worktree it works on. The window's directory decides what its status mark, its
+review popups and Claude Code's own `/diff` show, so a session meant for a
+worktree is started there rather than pointed at it from the main repo.
+
+| Ghostty | tmux | Does |
+|---------|------|------|
+| `cmd+p` | `prefix f` | Window picker with a live preview of each window; `ctrl-x` kills a window, asking first if Claude is still active in it |
+| `cmd+shift+n` | `prefix C` | New Claude Code window in a directory picked from the current one, every worktree of its repo, and where Claude Code has run before (most recent first). `enter` starts a new conversation, `ctrl-o` continues that directory's last one |
+| `cmd+r` | `prefix e` | Review popup with the window's uncommitted changes, untracked files included |
+| `cmd+shift+r` | `prefix R` | Review popup with everything the branch changed since it forked from its base, committed or not; untracked files are not listed |
+
+The branch review's base is the open PR's base branch. Without a PR it is
+whichever of the newest `release/*` and the default branch the current branch
+forked from most recently, taken from `upstream` in a fork and from `origin`
+otherwise.
+
+The review popups open nvim with diffview and nothing else: no bufferline,
+`<S-h>` / `<S-l>` step through the changed files, and closing the diffview
+(`:qa`, `<leader>gq` or `:DiffviewClose`) closes the popup. Edits in the diff
+are real files; unsaved ones are asked about before it closes.
 
 ## Claude Code status in tmux
 
