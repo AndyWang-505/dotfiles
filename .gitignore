@@ -18,6 +18,10 @@ fish/.config/fish/conf.d/_tide_init.fish
 fish/.config/fish/fish_variables*
 fish/.config/fish/config-local.fish
 
+# The employer identity install.sh asks for. On a machine where stow folded
+# ~/.config/git into a single symlink, writing it there lands inside this repo.
+git/.config/git/work.gitconfig
+
 # Config that only makes sense inside one employer's repos. init.lua stays, so
 # `{ import = "plugins.local" }` still finds a module on a machine with none.
 nvim/.config/nvim/lua/config/local.lua
