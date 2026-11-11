@@ -212,16 +212,19 @@ fi
 
 cat <<EOF
 
-Next steps (also in the README, under "After the first run"). Do them in
+Next steps (also in the README, under "Post-installation"). Do them in
 Ghostty: Terminal's zsh does not have Homebrew on its PATH.
   1. Open Ghostty. It starts fish; \`t\` attaches the shared tmux session.
-  2. Fill in the machine-local files. Until work.gitconfig has an email, git
+  2. Fill in the local configuration. Until work.gitconfig has an email, git
      refuses to commit in work repos.
        nvim ~/.gitconfig                      # uncomment the employer includeIf
        nvim ~/.config/git/work.gitconfig      # [user] email = ...
        nvim ~/.config/fish/config-local.fish  # credentials, work env vars
   3. Run \`claude\` once to sign in.
-  4. Optional: Ghostty already runs fish. Only if you also want it as the login
+  4. Optional: run \`gh auth login\`, so the review popup can find a branch's
+     PR and diff against its base. Without it, the popup falls back to the
+     newest release/* or the default branch.
+  5. Optional: Ghostty already runs fish. Only if you also want it as the login
      shell:
        echo \$(brew --prefix)/bin/fish | sudo tee -a /etc/shells
        chsh -s \$(brew --prefix)/bin/fish
