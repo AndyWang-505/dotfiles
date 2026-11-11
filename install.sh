@@ -212,10 +212,10 @@ fi
 
 cat <<EOF
 
-Next steps (also in the README, under "Post-installation"). Do them in
+Next steps (also in the README, under "After the first run"). Do them in
 Ghostty: Terminal's zsh does not have Homebrew on its PATH.
   1. Open Ghostty. It starts fish; \`t\` attaches the shared tmux session.
-  2. Fill in the local configuration. Until work.gitconfig has an email, git
+  2. Fill in the machine-local files. Until work.gitconfig has an email, git
      refuses to commit in work repos.
        nvim ~/.gitconfig                      # uncomment the employer includeIf
        nvim ~/.config/git/work.gitconfig      # [user] email = ...
