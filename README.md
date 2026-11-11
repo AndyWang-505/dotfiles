@@ -11,7 +11,7 @@ Personal dotfiles for Apple Silicon macOS, managed with [GNU Stow](https://www.g
 | **claude** | Global Claude Code instructions (`~/.claude/CLAUDE.md`) only — the rest of `~/.claude` holds work context and stays machine-local |
 | **fish** | Interactive shell — [Fisher](https://github.com/jorgebucaran/fisher), [Tide](https://github.com/IlanCosman/tide) prompt, [fnm](https://github.com/Schniz/fnm) (switches Node to a project's `.nvmrc` on `cd`), abbreviations in `conf.d/abbr.fish` (`t` attaches the shared `main` tmux session) |
 | **nvim** | Neovim config based on [LazyVim](https://www.lazyvim.org/) |
-| **tmux** | `C-a` prefix, vi-style copy mode, plugins via [TPM](https://github.com/tmux-plugins/tpm), and the [Claude Code workflow](#claude-code-in-tmux): window picker, new-window picker, status marks and review popups |
+| **tmux** | `C-a` prefix, vi-style copy mode, plugins via [TPM](https://github.com/tmux-plugins/tpm), and the [Claude Code workflow](#claude-code-in-tmux): window picker, new-window picker, status marks and the review popup |
 | **ghostty** | Terminal — tokyonight-night, transparent background, launches fish; `cmd` shortcuts for the [Claude Code workflow](#claude-code-in-tmux) |
 
 > **zsh** is intentionally not a package — it is only the login shell and gets its PATH from `/etc/paths`.
@@ -51,7 +51,7 @@ Running programs pick up an edit as follows:
 |--------|--------------|
 | tmux | `tmux source-file ~/.config/tmux/tmux.conf` |
 | Ghostty | `cmd+shift+,` |
-| nvim | Next time nvim starts, review popups included |
+| nvim | Next time nvim starts, the review popup included |
 | fish | New shell, or `exec fish` |
 
 `install.sh` puts nvim plugins back to the versions in
@@ -83,15 +83,14 @@ These are untracked on purpose (repo is public):
 Every Claude Code session gets its own tmux window, started in the repo or
 worktree it works on. Pick that directory with `cmd+shift+n` when opening the
 window: a running session cannot move, and `/diff` looks at the directory it
-started in. The review popups also follow the repos and worktrees Claude edits
+started in. The review popup also follows the repos and worktrees Claude edits
 from the window, such as an autofix worktree.
 
 | Ghostty | tmux | Does |
 |---------|------|------|
 | `cmd+p` | `prefix f` | Switch windows, with a live preview of each; `ctrl-x` kills one, asking first if Claude is still active in it |
 | `cmd+shift+n` | `prefix C` | New Claude Code window in a directory you pick |
-| `cmd+r` | `prefix e` | Review the window's uncommitted changes |
-| `cmd+shift+r` | `prefix R` | Step through the commits the window's branch added |
+| `cmd+r` | `prefix e` | Review what the window's branch changed |
 
 ### New window picker
 
@@ -120,29 +119,45 @@ tmux set -w -t "$TMUX_PANE" @claude_label PROJ-123   # set
 tmux set -wu @claude_label                           # back to the title
 ```
 
-### Review popups
+### Review popup
 
-Both open nvim with diffview on the window's repo or worktree. `<S-h>` /
-`<S-l>` step through the changed files, and closing the diffview (`:qa`,
-`<leader>gq` or `:DiffviewClose`) closes the popup, asking first about unsaved
-edits.
+`cmd+r` opens nvim with diffview on the window's repo or worktree, starting on
+everything the branch changed since it forked from its base, committed or not.
+The line at the top shows which view is open, the base and whether editing is
+on. In the diffview's windows, number keys switch the view, and it stays on the
+file you were reading:
+
+| Key | Shows |
+|-----|-------|
+| `1` | The branch diff it starts on. The right side is the real file |
+| `2` | Only the uncommitted changes, untracked files included. The right side is the real file |
+| `3` | The branch's commits, newest first; pick one to see its diff. Merge commits are left out, so merging the base in does not list its changes |
+| `<leader>ge` | Toggle editing. The popup starts read-only, so a stray key cannot change a real file; once on, edits to the right side and to files opened from a search go to the real files |
+
+The number keys only work in the diffview's own windows, so counts like `5j`
+still work in a tab opened from a search; go back to the diff (`gT`) to switch.
+
+The base is the open PR's base branch; without a PR it is whichever of the
+newest `release/*` and the default branch the branch forked from most recently,
+taken from `upstream` in a fork and from `origin` otherwise. Without any base,
+for example in a repo with no remote, only `2` works. Finding the base
+asks GitHub for the PR, so the popup takes about a second to open.
+
+`<S-h>` / `<S-l>` step through the changed files in the diff windows; in the
+commit list, `L` shows the full commit message. `/` searches the side the cursor
+is on. Searching the whole worktree (`<leader>/`, `<leader>sg`, or
+`<leader><space>` for files) opens what you pick in a new tab, so the diff
+stays; `:q` there goes back. Each popup starts a fresh nvim, so the first
+go-to-definition waits for the language server to start.
+
+Closing the diffview (`:qa`, `<leader>gq` or `:DiffviewClose`) closes the popup,
+tabs opened from a search included, asking first about unsaved edits.
 
 `tmux/.config/tmux/scripts/review-dirs.sh` records every repo or worktree
 Claude Code edits a file in (`Edit`, `Write`, `NotebookEdit`) in the window
 option `@review_dirs`; `install.sh` adds it to the hooks. Files changed only
 through shell commands are not recorded. When any recorded directory has
-something to show, the popup lists them, newest first, with the window's own
-directory on top if it has changes too and left out if it has none; a single
-choice opens directly. Closing the diffview then returns to the list, and `esc`
-closes the popup.
-
-`cmd+r` lists the uncommitted changes, untracked files included. The right
-side is the real file, so it can be edited and saved there.
-
-`cmd+shift+r` lists the commits the branch added since it forked from its base,
-newest first; pick one to see its diff. Merge commits are left out, so merging
-the base in does not list its changes. Uncommitted changes are not in it either;
-look at those with `cmd+r`. The base is the open PR's base branch; without a PR
-it is whichever of the newest `release/*` and the default branch the branch
-forked from most recently, taken from `upstream` in a fork and from `origin`
-otherwise.
+uncommitted changes or commits of its own, the popup lists them, newest first,
+with the window's own directory on top if it has changes too and left out if it
+has none; a single choice opens directly. Closing the diffview then returns to
+the list, and `esc` closes the popup.
