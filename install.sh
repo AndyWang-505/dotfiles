@@ -23,7 +23,13 @@ if command -v brew >/dev/null 2>&1; then
   skip "Homebrew already installed"
 else
   log "Installing Homebrew"
-  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  # A failed download would hand bash an empty script, which exits 0, and the
+  # run would only stop later at a confusing "brew: command not found".
+  brew_installer=$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh) || {
+    echo "Could not download the Homebrew installer. Check the network and re-run." >&2
+    exit 1
+  }
+  /bin/bash -c "$brew_installer"
 fi
 
 # The installer does not touch the current shell's PATH.
@@ -98,7 +104,9 @@ if command -v claude >/dev/null 2>&1; then
   skip "Claude Code already installed"
 else
   log "Installing Claude Code"
-  try bash -c 'curl -fsSL https://claude.ai/install.sh | bash'
+  # Without pipefail a failed download pipes nothing into bash, which exits 0,
+  # and the failure never reaches WARNINGS.
+  try bash -c 'set -o pipefail; curl -fsSL https://claude.ai/install.sh | bash'
 fi
 
 # The tmux status marks only move if Claude Code calls claude-wait.sh, and the
@@ -204,11 +212,17 @@ fi
 
 cat <<EOF
 
-Left for you to do by hand:
-  - Put your real values in ~/.config/fish/config-local.fish
-  - For work repos, uncomment the includeIf in ~/.gitconfig and put user.email
-    in ~/.config/git/work.gitconfig; until then git refuses to commit in them
-  - ghostty runs fish already. Only chsh if you also want it as the login shell:
-      echo \$(brew --prefix)/bin/fish | sudo tee -a /etc/shells
-      chsh -s \$(brew --prefix)/bin/fish
+Next steps (also in the README, under "After the first run"). Do them in
+Ghostty: Terminal's zsh does not have Homebrew on its PATH.
+  1. Open Ghostty. It starts fish; \`t\` attaches the shared tmux session.
+  2. Fill in the machine-local files. Until work.gitconfig has an email, git
+     refuses to commit in work repos.
+       nvim ~/.gitconfig                      # uncomment the employer includeIf
+       nvim ~/.config/git/work.gitconfig      # [user] email = ...
+       nvim ~/.config/fish/config-local.fish  # credentials, work env vars
+  3. Run \`claude\` once to sign in.
+  4. Optional: Ghostty already runs fish. Only if you also want it as the login
+     shell:
+       echo \$(brew --prefix)/bin/fish | sudo tee -a /etc/shells
+       chsh -s \$(brew --prefix)/bin/fish
 EOF
