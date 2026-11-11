@@ -22,7 +22,14 @@ return {
         { "n", "<S-h>", actions.select_prev_entry, { desc = "Open the diff for the previous file" } },
         { "n", "<S-l>", actions.select_next_entry, { desc = "Open the diff for the next file" } },
       }
-      local opts = { keymaps = { view = step_files, file_panel = step_files } }
+      local opts = {
+        -- Lines that only the old side has show red, not the green of lines
+        -- the new side added
+        enhanced_diff_hl = true,
+        -- Each side's title names its version: a commit, or WORKING TREE
+        view = { default = { winbar_info = true }, file_history = { winbar_info = true } },
+        keymaps = { view = step_files, file_panel = step_files },
+      }
       if review.enabled then
         review.extend_diffview(opts, actions)
       end
