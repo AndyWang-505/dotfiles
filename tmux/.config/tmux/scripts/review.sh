@@ -2,8 +2,8 @@
 # Review popup for `prefix e` and `prefix R`: opens diffview on the repo or
 # worktree the popup started in, or on one Claude edited from this window.
 #   review.sh          uncommitted changes, untracked files included
-#   review.sh branch   everything the branch changed since it forked from its
-#                      base, committed or not; untracked files are not listed
+#   review.sh branch   the commits the branch added since it forked from its
+#                      base, one at a time; uncommitted changes are not listed
 #
 # The base is the open PR's base branch. Without a PR it is whichever of the
 # newest release/* and the remote's default branch the current branch forked
@@ -22,14 +22,16 @@ review() {
 }
 
 has_changes() {
-  [ -n "$(git -C "$1" status --porcelain 2>/dev/null | head -1)" ] && return 0
-  [ "$mode" = branch ] || return 1
+  if [ "$mode" != branch ]; then
+    [ -n "$(git -C "$1" status --porcelain 2>/dev/null | head -1)" ]
+    return
+  fi
   local bases
   bases=$(git -C "$1" for-each-ref --format='%(refname)' refs/remotes/origin/release/ refs/remotes/upstream/release/
     git -C "$1" symbolic-ref -q refs/remotes/origin/HEAD
     git -C "$1" symbolic-ref -q refs/remotes/upstream/HEAD)
   # shellcheck disable=SC2086
-  [ -n "$(git -C "$1" rev-list -1 HEAD --not $bases 2>/dev/null)" ]
+  [ -n "$(git -C "$1" rev-list -1 --no-merges HEAD --not $bases 2>/dev/null)" ]
 }
 
 # The window's own directory, unless Claude edited other repos or worktrees
@@ -84,8 +86,11 @@ open_review() {
   [ -n "$base" ] || die 'No base branch found'
 
   fork=$(git merge-base HEAD "$base") || die "No common history with $base"
+  # Merges are left out: one that brought the base in would list every change
+  # the base made since the fork
+  [ "$(git rev-list --count --no-merges "$fork..HEAD")" -gt 0 ] || die "No commits since forking from $base"
 
-  review -c "DiffviewOpen $fork" -c "echo 'Changes since forking from $base'"
+  review -c "DiffviewFileHistory --range=$fork..HEAD --no-merges" -c "echo 'Commits since forking from $base'"
 }
 
 mode=$1

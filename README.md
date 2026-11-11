@@ -91,7 +91,7 @@ from the window, such as an autofix worktree.
 | `cmd+p` | `prefix f` | Switch windows, with a live preview of each; `ctrl-x` kills one, asking first if Claude is still active in it |
 | `cmd+shift+n` | `prefix C` | New Claude Code window in a directory you pick |
 | `cmd+r` | `prefix e` | Review the window's uncommitted changes |
-| `cmd+shift+r` | `prefix R` | Review everything the window's branch changed |
+| `cmd+shift+r` | `prefix R` | Step through the commits the window's branch added |
 
 ### New window picker
 
@@ -122,10 +122,10 @@ tmux set -wu @claude_label                           # back to the title
 
 ### Review popups
 
-Both open nvim with diffview on the window's repo or worktree. The right side
-is the real file, so it can be edited and saved there. `<S-h>` / `<S-l>` step
-through the changed files, and closing the diffview (`:qa`, `<leader>gq` or
-`:DiffviewClose`) closes the popup, asking first about unsaved edits.
+Both open nvim with diffview on the window's repo or worktree. `<S-h>` /
+`<S-l>` step through the changed files, and closing the diffview (`:qa`,
+`<leader>gq` or `:DiffviewClose`) closes the popup, asking first about unsaved
+edits.
 
 `tmux/.config/tmux/scripts/review-dirs.sh` records every repo or worktree
 Claude Code edits a file in (`Edit`, `Write`, `NotebookEdit`) in the window
@@ -136,9 +136,13 @@ directory on top if it has changes too and left out if it has none; a single
 choice opens directly. Closing the diffview then returns to the list, and `esc`
 closes the popup.
 
-`cmd+r` lists the uncommitted changes, untracked files included. `cmd+shift+r`
-lists everything since the branch forked from its base, committed or not, but
-not untracked files. The base is the open PR's base branch; without a PR it is
-whichever of the newest `release/*` and the default branch the branch forked
-from most recently, taken from `upstream` in a fork and from `origin`
+`cmd+r` lists the uncommitted changes, untracked files included. The right
+side is the real file, so it can be edited and saved there.
+
+`cmd+shift+r` lists the commits the branch added since it forked from its base,
+newest first; pick one to see its diff. Merge commits are left out, so merging
+the base in does not list its changes. Uncommitted changes are not in it either;
+look at those with `cmd+r`. The base is the open PR's base branch; without a PR
+it is whichever of the newest `release/*` and the default branch the branch
+forked from most recently, taken from `upstream` in a fork and from `origin`
 otherwise.
