@@ -3,3 +3,6 @@
 -- Add any additional options here
 
 vim.g.autoformat = false
+
+-- In diffs, the side without a line shows ╱ in its place
+vim.opt.fillchars:append({ diff = "╱" })
