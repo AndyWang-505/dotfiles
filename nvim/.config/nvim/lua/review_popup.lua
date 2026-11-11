@@ -98,7 +98,14 @@ end
 local function mode_keys()
   local keys = {}
   for _, mode in ipairs(M.modes) do
-    table.insert(keys, { "n", mode.key, function() M.switch(mode.name) end, { desc = "Review: " .. mode.label } })
+    table.insert(keys, {
+      "n",
+      mode.key,
+      function()
+        M.switch(mode.name)
+      end,
+      { desc = "Review: " .. mode.label },
+    })
   end
   table.insert(keys, { "n", "<leader>ge", M.toggle_editing, { desc = "Review: toggle editing" } })
   return keys
@@ -110,7 +117,9 @@ function M.setup()
   end, {
     nargs = 1,
     complete = function()
-      return vim.tbl_map(function(mode) return mode.name end, M.modes)
+      return vim.tbl_map(function(mode)
+        return mode.name
+      end, M.modes)
     end,
   })
   vim.o.showtabline = 2
