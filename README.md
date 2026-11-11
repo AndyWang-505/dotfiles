@@ -122,36 +122,41 @@ tmux set -wu @claude_label                           # back to the title
 ### Review popup
 
 `cmd+r` opens nvim with diffview on the window's repo or worktree, starting on
-everything the branch changed since it forked from its base, committed or not.
-The line at the top shows which view is open, the base and whether editing is
-on. In the diffview's windows, number keys switch the view, and it stays on the
-file you were reading:
+everything the branch changed since it forked from its base. The line at the
+top shows the view, the base and whether editing is on. In the diffview's
+windows, number keys switch the view and keep the file you were reading:
 
 | Key | Shows |
 |-----|-------|
-| `1` | The branch diff it starts on. The right side is the real file |
-| `2` | Only the uncommitted changes, untracked files included. The right side is the real file |
+| `1` | The branch diff it starts on, uncommitted changes included but not untracked files (git cannot diff those against a commit) |
+| `2` | Only the uncommitted changes, untracked files included |
 | `3` | The branch's commits, newest first; pick one to see its diff. Merge commits are left out, so merging the base in does not list its changes |
-| `<leader>ge` | Toggle editing. The popup starts read-only, so a stray key cannot change a real file; once on, edits to the right side and to files opened from a search go to the real files |
+| `<leader>ge` | Toggle editing |
+
+The popup starts read-only, so a stray key cannot change a file. That covers
+diffview's own restore (`X`) and stage (`s`, `-`, `S`, `U`) keys, and search
+and replace (`<leader>sr`) is off. With editing on, the right side of `1` and
+`2` is the real file.
 
 The number keys only work in the diffview's own windows, so counts like `5j`
-still work in a tab opened from a search; go back to the diff (`gT`) to switch.
+still work in other tabs; go back to the diff (`gT`) to switch.
 
-The base is the open PR's base branch; without a PR it is whichever of the
-newest `release/*` and the default branch the branch forked from most recently,
-taken from `upstream` in a fork and from `origin` otherwise. Without any base,
-for example in a repo with no remote, only `2` works. Finding the base
+The base is the open PR's base branch, if it is fetched; otherwise whichever of
+the newest `release/*` and the default branch the branch forked from most
+recently, taken from `upstream` in a fork and from `origin` otherwise. Without
+any base, for example in a repo with no remote, only `2` works. Finding the base
 asks GitHub for the PR, so the popup takes about a second to open.
 
 `<S-h>` / `<S-l>` step through the changed files in the diff windows; in the
 commit list, `L` shows the full commit message. `/` searches the side the cursor
-is on. Searching the whole worktree (`<leader>/`, `<leader>sg`, or
-`<leader><space>` for files) opens what you pick in a new tab, so the diff
-stays; `:q` there goes back. Each popup starts a fresh nvim, so the first
-go-to-definition waits for the language server to start.
+is on. From the diff's tab, whatever you pick in a search (`<leader>/`,
+`<leader>sg`, `<leader><space>` for files) or jump to (`gd`, `gr`) opens in a
+new tab, so the diff stays; in that tab they work as usual, and `:q` goes back.
+Each popup starts a fresh nvim, so the first go-to-definition waits for the
+language server.
 
 Closing the diffview (`:qa`, `<leader>gq` or `:DiffviewClose`) closes the popup,
-tabs opened from a search included, asking first about unsaved edits.
+other tabs included, asking first about unsaved edits.
 
 `tmux/.config/tmux/scripts/review-dirs.sh` records every repo or worktree
 Claude Code edits a file in (`Edit`, `Write`, `NotebookEdit`) in the window

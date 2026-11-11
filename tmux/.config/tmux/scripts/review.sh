@@ -1,15 +1,12 @@
 #!/usr/bin/env bash
-# Review popup for `prefix e`: opens diffview on the repo or worktree the popup
-# started in, or on one Claude edited from this window. It starts on everything
-# the branch changed since it forked from its base, committed or not; inside,
-# 1 / 2 / 3 switch between that branch diff, the uncommitted changes and the
-# branch's commits one at a time (see diffview.lua).
+# Review popup for `prefix e`, on the window's repo or worktree or one Claude
+# edited from this window. nvim (lua/review_popup.lua) starts on the branch diff
+# since the fork point; 1 / 2 / 3 there switch to it, the uncommitted changes or
+# the branch's commits.
 #
-# The base is the open PR's base branch. Without a PR it is whichever of the
-# newest release/* and the remote's default branch the current branch forked
-# from most recently. Remote branches come from upstream when the repo is a
-# fork and from origin otherwise. Commits that reached the base after the fork
-# are left out.
+# The base is the open PR's base branch, if it is fetched. Otherwise it is
+# whichever of the newest release/* and the default branch HEAD forked from most
+# recently. Remote branches come from upstream in a fork and origin otherwise.
 
 die() {
   echo "$*"
@@ -21,14 +18,15 @@ review() {
   exec nvim --cmd 'let g:review_popup = 1' "$@"
 }
 
-# Uncommitted changes, or commits that are not in any release/* or default
-# branch yet
+# Uncommitted changes, or commits not yet in any release/* or default branch.
+# With no remote branches to compare against, only uncommitted changes count.
 has_changes() {
   [ -n "$(git -C "$1" status --porcelain 2>/dev/null | head -1)" ] && return 0
   local bases
   bases=$(git -C "$1" for-each-ref --format='%(refname)' refs/remotes/origin/release/ refs/remotes/upstream/release/
     git -C "$1" symbolic-ref -q refs/remotes/origin/HEAD
     git -C "$1" symbolic-ref -q refs/remotes/upstream/HEAD)
+  [ -n "$bases" ] || return 1
   # shellcheck disable=SC2086
   [ -n "$(git -C "$1" rev-list -1 --no-merges HEAD --not $bases 2>/dev/null)" ]
 }
@@ -58,29 +56,28 @@ choose() {
     cut -f1
 }
 
-# Prints the fork point and the base it forked from
+# Prints "<fork point> <base>"
 find_fork() {
-  local remote=origin base closest candidate ahead fork
+  local remote=origin base candidate fork ahead best_fork best_ahead
   git remote get-url upstream >/dev/null 2>&1 && remote=upstream
 
-  base=$(gh pr view --json baseRefName -q .baseRefName 2>/dev/null)
-  base=${base:+$remote/$base}
-  if [ -z "$base" ]; then
-    for candidate in \
-      "$(git for-each-ref --sort=-v:refname --count=1 --format='%(refname:short)' "refs/remotes/$remote/release/*")" \
-      "$(git symbolic-ref -q --short "refs/remotes/$remote/HEAD")"; do
-      [ -n "$candidate" ] || continue
-      ahead=$(git rev-list --count "$(git merge-base HEAD "$candidate")..HEAD" 2>/dev/null) || continue
-      if [ -z "$closest" ] || [ "$ahead" -lt "$closest" ]; then
-        base=$candidate
-        closest=$ahead
-      fi
-    done
+  base=$(gh pr view --json state,baseRefName -q 'select(.state == "OPEN") | .baseRefName' 2>/dev/null)
+  if [ -n "$base" ] && fork=$(git merge-base HEAD "$remote/$base" 2>/dev/null); then
+    printf '%s %s\n' "$fork" "$remote/$base"
+    return
   fi
-  [ -n "$base" ] || return 1
 
-  fork=$(git merge-base HEAD "$base") || return 1
-  printf '%s %s\n' "$fork" "$base"
+  for candidate in \
+    "$(git for-each-ref --sort=-v:refname --count=1 --format='%(refname:short)' "refs/remotes/$remote/release/*")" \
+    "$(git symbolic-ref -q --short "refs/remotes/$remote/HEAD")"; do
+    [ -n "$candidate" ] && fork=$(git merge-base HEAD "$candidate" 2>/dev/null) || continue
+    ahead=$(git rev-list --count "$fork..HEAD")
+    if [ -z "$best_ahead" ] || [ "$ahead" -lt "$best_ahead" ]; then
+      base=$candidate best_fork=$fork best_ahead=$ahead
+    fi
+  done
+  [ -n "$best_fork" ] || return 1
+  printf '%s %s\n' "$best_fork" "$base"
 }
 
 # Without a base, nvim gets no fork point and shows only the uncommitted changes
@@ -88,10 +85,11 @@ open_review() {
   git rev-parse --is-inside-work-tree >/dev/null 2>&1 || die "Not a git repository: $PWD"
 
   echo 'Finding the base branch...'
-  local fork base
+  local fork base quote="'"
   read -r fork base <<<"$(find_fork)"
   [ -n "$fork" ] || review -c 'ReviewMode uncommitted'
-  review --cmd "let g:review_fork = '$fork' | let g:review_base = '$base'" -c 'ReviewMode branch'
+  # Doubling ' keeps a branch name like it's inside the vimscript string
+  review --cmd "let g:review_fork = '$fork' | let g:review_base = '${base//$quote/$quote$quote}'" -c 'ReviewMode branch'
 }
 
 dirs=$(candidates)
