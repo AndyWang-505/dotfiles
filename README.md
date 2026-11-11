@@ -1,54 +1,41 @@
 # dotfiles
 
-A macOS setup for working with Claude Code in the terminal: Ghostty, tmux, fish
-and Neovim (LazyVim), wired so that every Claude Code session gets its own tmux
-window you can watch, switch to and review.
+Personal dotfiles for Apple Silicon macOS, managed with [GNU Stow](https://www.gnu.org/software/stow/).
 
-Configs are symlinked into `$HOME` with
-[GNU Stow](https://www.gnu.org/software/stow/). The repo is public, so anything
-tied to an employer or holding credentials stays in
-[local configuration](#local-configuration).
+## Packages
 
-## Features
+| Package | Description |
+|---------|-------------|
+| **ripgrep** | ripgrep config (`~/.ripgreprc`), loaded through `RIPGREP_CONFIG_PATH` set in the fish package |
+| **git** | Name, aliases and the personal identity, picked by the repo's remote via `includeIf`. `user.useConfigOnly` makes git refuse to commit in a repo that matches no identity instead of guessing an email |
+| **claude** | Global Claude Code instructions (`~/.claude/CLAUDE.md`) only — the rest of `~/.claude` holds work context and stays machine-local |
+| **fish** | Interactive shell — [Fisher](https://github.com/jorgebucaran/fisher), [Tide](https://github.com/IlanCosman/tide) prompt, [fnm](https://github.com/Schniz/fnm) (switches Node to a project's `.nvmrc` on `cd`), abbreviations in `conf.d/abbr.fish` (`t` attaches the shared `main` tmux session, `lg` opens lazygit, `gst` / `gl` run `git status` / `git pull`) |
+| **nvim** | Neovim config based on [LazyVim](https://www.lazyvim.org/) |
+| **tmux** | `C-a` prefix, vi-style copy mode, plugins via [TPM](https://github.com/tmux-plugins/tpm), and the [Claude Code workflow](#claude-code-in-tmux): window picker, new-window picker, status marks and the review popup |
+| **ghostty** | Terminal — tokyonight-night, transparent background, launches fish; `cmd` shortcuts for the [Claude Code workflow](#claude-code-in-tmux) |
 
-- **Terminal**: Ghostty with the TokyoNight theme runs fish with the
-  [Tide](https://github.com/IlanCosman/tide) prompt, and
-  [fnm](https://github.com/Schniz/fnm) switches Node to a project's `.nvmrc` on
-  `cd`.
-- **[Claude Code in tmux](#claude-code-in-tmux)**: one window per session,
-  started in the repo or worktree you pick. Marks on each window show which
-  session is working, waiting for an answer or done, and a desktop notification
-  tells you when one asks something.
-- **[Review popup](#review-popup)**: `cmd+r` shows what a window's branch
-  changed, as one diff, as uncommitted changes only, or commit by commit,
-  including worktrees Claude edited from that window.
-- **Neovim**: [LazyVim](https://www.lazyvim.org/) with the TypeScript, ESLint,
-  Prettier, JSON, YAML and Markdown extras, inline git blame and image paste
-  into Markdown.
-- **Git identity by remote**: personal repos commit with the personal identity,
-  employer repos with the work one, and a repo that matches neither refuses to
-  commit instead of guessing an email.
-- **One-step install**: `install.sh` sets up everything, Homebrew included, and
-  is safe to run again.
+> **zsh** is intentionally not a package — it is only the login shell and gets its PATH from `/etc/paths`.
 
 ## Requirements
 
 - macOS on Apple Silicon
 - An administrator account, for Homebrew's installer
 
-## Installation
+## Install
 
-Run these from the built-in Terminal app, since Ghostty is not installed yet.
+Run these from the built-in Terminal app: Ghostty is one of the things
+`install.sh` installs.
 
-1. Install the Xcode Command Line Tools, which provide `git`, and wait for the
-   dialog to finish:
+1. Install the Xcode Command Line Tools. A fresh Mac has no working `git` until
+   they are in, and the first `git` call only opens their installer. Wait for
+   the dialog to finish.
 
    ```sh
    xcode-select --install
    ```
 
-2. Clone the repo and run the installer. Homebrew asks for your password, and
-   the first run takes a while.
+2. Clone the repo and run the installer. Homebrew asks for your password and
+   for Enter, and the first run takes a while.
 
    ```sh
    git clone https://github.com/AndyWang505/dotfiles.git ~/dotfiles
@@ -56,16 +43,17 @@ Run these from the built-in Terminal app, since Ghostty is not installed yet.
    ./install.sh
    ```
 
-If it stops, or ends with a list of failed steps, fix what it names and run it
-again.
+`install.sh` is idempotent. When it stops, or ends with a list of failed steps,
+fix what it names and run it again.
 
-### Post-installation
+### After the first run
 
-`install.sh` prints these steps when it finishes. Do them in Ghostty, since
-Terminal's shell does not have Homebrew on its PATH.
+`install.sh` prints the same list when it finishes. Do these in Ghostty:
+Terminal's zsh does not have Homebrew on its PATH, so `nvim` and `brew` are not
+found there.
 
-1. Open Ghostty.
-2. Fill in the [local configuration](#local-configuration). Until
+1. Open Ghostty. It starts fish; `t` attaches the shared tmux session.
+2. Fill in the [machine-local files](#machine-local-files). Until
    `work.gitconfig` has an email, git refuses to commit in work repos.
 
    ```sh
@@ -86,42 +74,94 @@ Terminal's shell does not have Homebrew on its PATH.
    chsh -s $(brew --prefix)/bin/fish
    ```
 
-## Usage
+## Day to day
 
-### Keybindings
+Every tracked config is a symlink into `~/dotfiles`, so editing `~/.config/...`
+edits the repo. A new file needs `stow --restow <package>` from `~/dotfiles`
+before it shows up in `$HOME`.
 
-The tmux prefix is `C-a`. Ghostty's `cmd` shortcuts send the same prefix keys.
+A new package is a directory laid out like `$HOME`, added to `PACKAGES` in
+`install.sh`. When a directory it stows into does not exist yet, stow links the
+whole directory into the repo, so whatever the program later writes there lands
+in `~/dotfiles`. If the program writes into that directory, create it before
+stowing and add the same `mkdir -p` to `install.sh`, as it does for
+`~/.claude`.
+
+Running programs pick up an edit as follows:
+
+| Config | Takes effect |
+|--------|--------------|
+| tmux | `tmux source-file ~/.config/tmux/tmux.conf` |
+| Ghostty | `cmd+shift+,` |
+| nvim | Next time nvim starts, the review popup included |
+| fish | New shell, or `exec fish` |
+
+`install.sh` puts nvim plugins back to the versions in
+`nvim/.config/nvim/lazy-lock.json`, so after `:Lazy update` commit that file, or
+the next run rolls the plugins back.
+
+Changes go in through PRs. This clone pushes branches to a fork (`origin`) and
+opens PRs against `upstream`. Once one merges:
+
+```sh
+git switch main && git pull upstream main
+git push origin main   # bring the fork along
+```
+
+## Machine-local files
+
+These are untracked on purpose (repo is public):
+
+| File | Purpose |
+|------|---------|
+| `~/.gitconfig` | URL rewrites, and the `includeIf` that points an employer's repos at `work.gitconfig` |
+| `~/.config/git/work.gitconfig` | Employer email |
+| `~/.config/fish/config-local.fish` | Credentials and work env vars |
+| `nvim/.../lua/plugins/local/` | Editor config tied to a specific employer |
+| `~/.claude/settings.json` | Claude Code settings; holds work context. `install.sh` only adds the tmux hooks to it |
+
+## Claude Code in tmux
+
+Every Claude Code session gets its own tmux window, started in the repo or
+worktree it works on. Pick that directory with `cmd+shift+n` when opening the
+window: a running session cannot move, and `/diff` looks at the directory it
+started in. The review popup also follows the repos and worktrees Claude edits
+from the window, such as an autofix worktree.
 
 | Ghostty | tmux | Does |
 |---------|------|------|
-| `cmd+p` | `prefix f` | Switch windows, with a live preview of each; `ctrl-x` kills one |
+| `cmd+p` | `prefix f` | Switch windows, with a live preview of each; `ctrl-x` kills one, asking first if Claude is still active in it |
 | `cmd+shift+n` | `prefix C` | New Claude Code window in a directory you pick |
-| `cmd+r` | `prefix e` | [Review popup](#review-popup) |
+| `cmd+r` | `prefix e` | [Review popup](#review-popup) for what the window's branch changed |
 | | `prefix h` / `prefix v` | Split the pane side by side / top and bottom |
-| | `prefix [` | Copy mode with vi keys; `v` selects, `y` copies |
+| | `prefix [` | Copy mode with vi keys; `v` selects, `y` copies to the clipboard |
 
-In fish, `t` attaches the shared `main` tmux session, `lg` opens lazygit, and
-`gst` / `gl` run `git status` / `git pull`. In Neovim, `<leader>p` pastes an
-image from the clipboard; everything else is LazyVim's defaults.
+### New window picker
 
-### Claude Code in tmux
+Lists the current directory, every worktree of its repo, then the directories
+Claude Code has run in, most recent first. `enter` starts a new conversation
+there, `ctrl-o` continues that directory's last one. A directory joins the list
+once Claude Code has run in it; before that, `cd` there and pick the current
+directory.
 
-Open each session with `cmd+shift+n` and pick the repo or worktree it works on:
-a running session cannot move to another directory. The picker lists the
-current directory, the repo's worktrees and the directories Claude Code has run
-in; `enter` starts a new conversation, `ctrl-o` continues the last one there.
+### Status marks
 
-Each window is marked with what its session is doing:
+`tmux/.config/tmux/scripts/claude-wait.sh` marks each tmux window with what its
+Claude Code session is doing:
 
 | Mark | Means |
 |------|-------|
 | 🔄 | Working |
-| 💬 | Waiting for your answer; also a desktop notification |
-| ✅ | Finished, not looked at yet |
-| 💤 | Idle |
+| 💬 | Needs an answer; also a Ghostty desktop notification, unless that window is already in front of you |
+| ✅ | Finished, and you have not looked yet |
+| 💤 | You have looked, or no prompt yet |
 
-Windows are labelled by the conversation title. A session started with a slash
-command has none, so set a label yourself:
+Claude Code calls it from its hooks, which `install.sh` adds to
+`~/.claude/settings.json`, leaving any other hooks there alone.
+
+Windows are labelled by the conversation title Claude Code puts in the pane
+title. A session that starts with a slash command never gets one, so a window
+can override it with `@claude_label`, which stays until the window closes:
 
 ```sh
 tmux set -w -t "$TMUX_PANE" @claude_label PROJ-123   # set
@@ -133,7 +173,8 @@ tmux set -wu @claude_label                           # back to the title
 `cmd+r` shows what the window's branch changed, in Neovim with diffview. It
 opens on the branch diff: everything since the branch forked from its base,
 committed or not. When Claude also edited other repos or worktrees from this
-window and more than one has changes, it asks which to open.
+window, such as an autofix worktree, and more than one has changes, it asks
+which to open.
 
 | Key | Does |
 |-----|------|
@@ -150,52 +191,3 @@ window and more than one has changes, it asks which to open.
 - `1` leaves out files that were never `git add`ed; `2` shows them.
 - The base is the PR's base branch, or else the newest `release/*` or the
   default branch. Without any, only `2` works.
-
-## Configuration
-
-### Repository structure
-
-Each top-level directory is a Stow package, laid out like `$HOME`.
-
-| Package | Configures |
-|---------|------------|
-| **ghostty** | Ghostty |
-| **tmux** | tmux, and the Claude Code scripts in `scripts/` |
-| **fish** | fish and its abbreviations |
-| **nvim** | Neovim (LazyVim) |
-| **git** | git, including the per-remote identities |
-| **claude** | The global `~/.claude/CLAUDE.md` |
-| **ripgrep** | `~/.ripgreprc` |
-
-### Local configuration
-
-These files are untracked on purpose, since the repo is public:
-
-| File | Holds |
-|------|-------|
-| `~/.gitconfig` | The `includeIf` that points an employer's repos at `work.gitconfig` |
-| `~/.config/git/work.gitconfig` | Employer email |
-| `~/.config/fish/config-local.fish` | Credentials and work env vars |
-| `nvim/.../lua/plugins/local/` | Editor config tied to a specific employer |
-| `~/.claude/settings.json` | Claude Code settings; `install.sh` only adds its hooks |
-
-## Development
-
-Every config is a symlink into `~/dotfiles`, so editing `~/.config/...` edits
-the repo. A new file needs `stow --restow <package>` before it shows up.
-
-| Config | Takes effect |
-|--------|--------------|
-| tmux | `tmux source-file ~/.config/tmux/tmux.conf` |
-| Ghostty | `cmd+shift+,` |
-| Neovim | Next start |
-| fish | A new shell, or `exec fish` |
-
-- **New package**: add the directory to `PACKAGES` in `install.sh`. If the
-  program writes into a directory that does not exist yet, create it first, or
-  stow links the whole directory into the repo.
-- **Neovim plugins**: `install.sh` pins them to `lazy-lock.json`, so commit that
-  file after `:Lazy update`.
-- **Pull requests**: branches go to a fork (`origin`) and PRs to `upstream`.
-  After one merges, `git switch main && git pull upstream main && git push
-  origin main`.
