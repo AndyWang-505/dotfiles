@@ -13,14 +13,14 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Style and info notes left out: the ones there today are intentional
       - name: shellcheck
         run: shellcheck --severity=warning install.sh tmux/.config/tmux/scripts/*.sh
 
       - name: stylua
-        uses: JohnnyMorganz/stylua-action@v4
+        uses: JohnnyMorganz/stylua-action@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           version: 2.5.2
