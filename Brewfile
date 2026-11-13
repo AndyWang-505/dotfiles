@@ -17,6 +17,9 @@ brew "fzf"
 brew "ripgrep"
 brew "fd"
 brew "lazygit"
+# nvim-treesitter builds its parsers with it; without it the first nvim run
+# has no highlighting until mason installs it
+brew "tree-sitter-cli"
 # img-clip.nvim's only clipboard source on macOS
 brew "pngpaste"
 

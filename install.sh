@@ -19,7 +19,8 @@ WARNINGS=()
 try() { "$@" || WARNINGS+=("$*"); }
 
 # ---------------------------------------------------------------- Homebrew ---
-if command -v brew >/dev/null 2>&1; then
+# Terminal's zsh does not have Homebrew on its PATH until brew shellenv runs.
+if [ -x /opt/homebrew/bin/brew ]; then
   skip "Homebrew already installed"
 else
   log "Installing Homebrew"
