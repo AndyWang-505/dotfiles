@@ -1,0 +1,55 @@
+name: Install
+
+# A full run takes several minutes, so only when something it installs or
+# writes changes: the installer, the package lists, and .gitignore, which keeps
+# what plugin managers write out of the repo
+on:
+  pull_request:
+    paths:
+      - install.sh
+      - Brewfile
+      - .gitignore
+      - nvim/.config/nvim/lazy-lock.json
+      - fish/.config/fish/fish_plugins
+      - tmux/.config/tmux/tmux.conf
+      - .github/workflows/install.yml
+  workflow_dispatch:
+
+# A new push to the PR makes the running install stale
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  install:
+    # Apple Silicon, which install.sh requires. The runner already has
+    # Homebrew, so the Homebrew installer step is the one part not covered.
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: First run
+        run: ./install.sh
+
+      # A second run is the re-run the README tells you to do after a failure.
+      # Untracked files would mean stow folded a directory a program writes
+      # into, and its files now land in the repo.
+      - name: Second run changes nothing
+        run: |
+          ./install.sh
+          git diff --exit-code
+          test -z "$(git status --porcelain)" || { git status --porcelain; exit 1; }
+
+      - name: Configs are in place
+        run: |
+          eval "$(/opt/homebrew/bin/brew shellenv)"
+          for link in .config/nvim/init.lua .config/fish/config.fish .config/tmux/tmux.conf \
+            .config/ghostty/config .config/git/config .claude/CLAUDE.md .ripgreprc; do
+            case "$(realpath "$HOME/$link")" in
+              "$GITHUB_WORKSPACE"/*) ;;
+              *) echo "not linked into the repo: ~/$link"; exit 1 ;;
+            esac
+          done
+          jq -e '.hooks.Stop and .hooks.PostToolUse' "$HOME/.claude/settings.json" >/dev/null
+          nvim --headless "+lua if #require('lazy').plugins() == 0 then os.exit(1) end" +qa
+          fish -c 'abbr -q t'

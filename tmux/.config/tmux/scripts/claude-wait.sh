@@ -48,7 +48,7 @@ done)
   if [ "$(tmux display -p -t "$TMUX_PANE" '#{&&:#{window_active},#{session_attached}}')" = 1 ]; then
     tmux set -w -t "$TMUX_PANE" @claude_wait idle
   else
-    tmux set -w -t "$TMUX_PANE" @claude_wait done
+    tmux set -w -t "$TMUX_PANE" @claude_wait "done"
   fi
   ;;
 clear)
