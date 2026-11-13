@@ -1,0 +1,36 @@
+name: Lint
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Style and info notes left out: the ones there today are intentional
+      - name: shellcheck
+        run: shellcheck --severity=warning install.sh tmux/.config/tmux/scripts/*.sh
+
+      - name: stylua
+        uses: JohnnyMorganz/stylua-action@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          version: 2.5.2
+          args: --config-path nvim/.config/nvim/stylua.toml --check nvim/.config/nvim
+
+      # Ubuntu's own fish is 3.x; the PPA has the 4.x that Homebrew installs
+      - name: fish syntax
+        run: |
+          sudo add-apt-repository -y ppa:fish-shell/release-4
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq fish
+          fish --version
+          find fish -name '*.fish' -print0 | xargs -0 -n1 fish --no-execute

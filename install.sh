@@ -19,7 +19,8 @@ WARNINGS=()
 try() { "$@" || WARNINGS+=("$*"); }
 
 # ---------------------------------------------------------------- Homebrew ---
-if command -v brew >/dev/null 2>&1; then
+# Terminal's zsh does not have Homebrew on its PATH until brew shellenv runs.
+if [ -x /opt/homebrew/bin/brew ]; then
   skip "Homebrew already installed"
 else
   log "Installing Homebrew"
@@ -51,7 +52,7 @@ HOMEBREW_NO_INSTALL_CLEANUP=1 brew bundle install --no-upgrade --file="$DOTFILES
 GITCONFIG="$HOME/.gitconfig"
 
 if [ -f "$GITCONFIG" ]; then
-  skip "~/.gitconfig exists"
+  skip "$GITCONFIG exists"
 else
   log "Creating ~/.gitconfig"
   cat >"$GITCONFIG" <<'EOF'
@@ -100,7 +101,9 @@ try "$TPM_DIR/bin/install_plugins"
 # Not in the Brewfile: an npm-installed claude already owns
 # /opt/homebrew/bin/claude on some machines, and the cask would fail to link
 # over it and abort brew bundle.
-if command -v claude >/dev/null 2>&1; then
+# The native installer puts claude in ~/.local/bin, which a shell other than
+# fish may not have on PATH yet.
+if command -v claude >/dev/null 2>&1 || [ -x "$HOME/.local/bin/claude" ]; then
   skip "Claude Code already installed"
 else
   log "Installing Claude Code"
@@ -229,3 +232,6 @@ Ghostty: Terminal's zsh does not have Homebrew on its PATH.
        echo \$(brew --prefix)/bin/fish | sudo tee -a /etc/shells
        chsh -s \$(brew --prefix)/bin/fish
 EOF
+
+# Failed steps above make the run fail too, so CI notices them
+[ ${#WARNINGS[@]} -eq 0 ] || exit 1
