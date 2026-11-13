@@ -26,7 +26,7 @@ jobs:
     # Homebrew, so the Homebrew installer step is the one part not covered.
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: First run
         run: ./install.sh
