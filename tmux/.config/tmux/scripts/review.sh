@@ -31,14 +31,21 @@ has_changes() {
   [ -n "$(git -C "$1" rev-list -1 --no-merges HEAD --not $bases 2>/dev/null)" ]
 }
 
-# The window's own directory, unless Claude edited other repos or worktrees
-# from this window (recorded by review-dirs.sh): those with changes are offered
-# too, and the window's directory is skipped when it has nothing to show.
+# The window's own directory, plus the repos or worktrees Claude edited from
+# this window (recorded by review-dirs.sh) and the repo's other worktrees, which
+# Claude may have changed through Bash where the hook does not see it. Those
+# with changes are offered too, and the window's directory is skipped when it
+# has nothing to show.
 candidates() {
   local current others dir
   current=$(git rev-parse --show-toplevel 2>/dev/null) || current=$PWD
-  others=$(tmux show -wv @review_dirs 2>/dev/null | while IFS= read -r dir; do
-    [ "$dir" != "$current" ] && [ -d "$dir" ] && has_changes "$dir" && printf '%s\n' "$dir"
+  others=$({
+    tmux show -wv @review_dirs 2>/dev/null
+    # A bare repository has no files to review
+    git -C "$current" worktree list --porcelain 2>/dev/null |
+      awk '/^worktree /{ dir = substr($0, 10) } /^bare$/{ dir = "" } /^$/{ if (dir != "") print dir; dir = "" }'
+  } | awk -v current="$current" 'NF && $0 != current && !seen[$0]++' | while IFS= read -r dir; do
+    [ -d "$dir" ] && has_changes "$dir" && printf '%s\n' "$dir"
   done)
   if [ -z "$others" ]; then
     printf '%s\n' "$current"
