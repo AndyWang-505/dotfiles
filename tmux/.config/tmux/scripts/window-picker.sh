@@ -27,10 +27,11 @@ if [ "$1" = kill ]; then
   exit 0
 fi
 
-# Windows needing you first, otherwise in tmux's order. Fields: window id,
-# session:index, mark (- when none), directory, title
+# Windows by how much they need you (tmux.conf's @claude_rank), otherwise in
+# tmux's order. Fields: window id, session:index, mark (- when none),
+# directory, title
 ranked() {
-  tmux list-windows -a -F '#{?#{==:#{@claude_wait},ask},0,#{?#{==:#{@claude_wait},done},1,2}}	#{window_id}	#{session_name}:#{window_index}	#{?@claude_wait,#{@claude_wait},-}	#{pane_current_path}	#{E:@win_title}' |
+  tmux list-windows -a -F '#{E:@claude_rank}	#{window_id}	#{session_name}:#{window_index}	#{?@claude_wait,#{@claude_wait},-}	#{pane_current_path}	#{E:@win_title}' |
     sort -s -n -k1,1 | cut -f2-
 }
 
@@ -48,19 +49,23 @@ if [ "$1" = list ]; then
     branches+=$'\n'$line
     [ -z "$2" ] || printf '%s\n' "$line" >>"$2"
   done <<<"$rows"
-  BRANCHES=$branches awk -F'\t' -v home="$HOME" '
+  # Marks and their colours as tmux.conf defines them, one "state icon #rrggbb" per line
+  marks=$(tmux display -p "$(printf 'ask #{@mark_ask} #{@mark_ask_fg}\ndone #{@mark_done} #{@mark_done_fg}\nrunning #{@mark_running} #{@mark_running_fg}\nidle #{@mark_idle} #{@mark_idle_fg}')")
+  BRANCHES=$branches MARKS=$marks awk -F'\t' -v home="$HOME" '
+    function rgb(hex) {
+      return sprintf("\033[38;2;%d;%d;%dm", hexbyte(substr(hex, 2, 2)), hexbyte(substr(hex, 4, 2)), hexbyte(substr(hex, 6, 2)))
+    }
+    function hexbyte(h) { return index("0123456789abcdef", tolower(substr(h, 1, 1))) * 16 + index("0123456789abcdef", tolower(substr(h, 2, 1))) - 17 }
     BEGIN {
       n = split(ENVIRON["BRANCHES"], lines, "\n")
       for (i = 1; i <= n; i++) { split(lines[i], f, "\t"); branch[f[1]] = f[2] }
+      n = split(ENVIRON["MARKS"], lines, "\n")
+      for (i = 1; i <= n; i++) { split(lines[i], f, " "); mark[f[1]] = rgb(f[3]) f[2] }
       dim = "\033[38;2;84;92;126m"; reset = "\033[0m"
     }
     {
       id = $1; target = $2; state = $3; dir = $4; title = $5
-      icon = " "
-      if (state == "ask") icon = "\033[33m󰍡"
-      else if (state == "done") icon = "\033[32m󰗠"
-      else if (state == "running") icon = "\033[36m⣾"
-      else if (state == "idle") icon = dim "󰖔"
+      icon = state in mark ? mark[state] : " "
       shown = dir
       if (dir == home || index(dir, home "/") == 1) shown = "~" substr(dir, length(home) + 1)
       extra = branch[dir] == "" ? "" : "  ·  " branch[dir]
@@ -70,6 +75,8 @@ if [ "$1" = list ]; then
 fi
 
 self=${BASH_SOURCE[0]}
+# shellcheck source-path=SCRIPTDIR
+. "$(dirname "$self")/fzf-theme.sh"
 if [ "$(tmux list-windows -a -F '#{@claude_wait}' | grep -cxE 'ask|done')" -gt 0 ]; then
   position=1
 else
@@ -100,16 +107,10 @@ done &
 refresher=$!
 trap 'kill $refresher 2>/dev/null; rm -f "$socket" "$cache" "$items"' EXIT
 
-key=$'\e[1;38;2;122;162;247m' does=$'\e[22;38;2;115;122;162m' sep=$'\e[38;2;59;66;97m'
-keys=" ${key}enter ${does}switch  ${sep}·  ${key}ctrl-x ${does}close window, asks before anything is lost "
-
 target=$(
-  fzf <"$items" --read0 --ansi --sync --layout reverse --style full:sharp --listen "$socket" \
-    --delimiter '\t' --with-nth 2.. --id-nth 1 --track --highlight-line --no-hscroll \
-    --prompt '❯ ' --pointer '▌' --gutter ' ' --gap --info hidden --input-label ' Windows ' \
-    --list-label "$keys" --list-label-pos bottom \
-    --color 'fg:#a9b1d6,fg+:#7aa2f7,bg+:-1,hl:#7aa2f7,hl+:#7aa2f7,prompt:#7aa2f7,pointer:#7aa2f7' \
-    --color 'border:#7aa2f7,gap-line:#3b4261,label:#7aa2f7,query:#c0caf5,gutter:-1' \
+  fzf <"$items" "${fzf_theme[@]}" --read0 --ansi --sync --layout reverse --listen "$socket" \
+    --delimiter '\t' --with-nth 2.. --id-nth 1 --track --no-hscroll --gap --input-label ' Windows ' \
+    --list-label "$(key_hints enter switch ctrl-x 'close window, asks before anything is lost')" --list-label-pos bottom \
     --bind "start:pos(${position:-1})" \
     --bind "ctrl-x:execute(\"$self\" kill {1})+reload($list)" \
     --bind 'focus:transform-preview-label:tmux display -p -t {1} " #{session_name}:#{window_index} "' \

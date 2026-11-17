@@ -9,7 +9,8 @@
 # `claude-wait.sh snapshot [window id]` only rewrites that list, leaving the
 # window out; tmux.conf's hooks and window-picker.sh use it.
 
-sessions=${XDG_STATE_HOME:-$HOME/.local/state}/tmux/claude-sessions
+state=${XDG_STATE_HOME:-$HOME/.local/state}/tmux
+sessions=$state/claude-sessions
 
 # Records the conversation a pane runs and the directory it started in, which
 # is where Claude files it. Fails when the pane already had it
@@ -87,7 +88,13 @@ ask)
   permission_prompt/* | elicitation_dialog/* | elicitation_url_dialog/* | agent_needs_input/*) question=1 ;;
   /done | /idle | idle_prompt/done | idle_prompt/idle) question= ;;
   /* | idle_prompt/*) question=1 ;;
-  *) question= ;;
+  auth_success/* | auth_storage_failure/* | agent_completed/* | elicitation_complete/* | elicitation_response/* | quota_*/* | plugin_notification/*) question= ;;
+  *)
+    # A type Claude Code added since: noted once, so a missed question shows up
+    question=
+    mkdir -p "$state"
+    grep -qxF "$type" "$state/new-notification-types" 2>/dev/null || echo "$type" >>"$state/new-notification-types"
+    ;;
   esac
   if [ -n "$question" ]; then
     tmux set -w -t "$TMUX_PANE" @claude_wait ask \; set -w -t "$TMUX_PANE" @claude_asker "$agent"

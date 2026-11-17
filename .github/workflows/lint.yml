@@ -17,7 +17,7 @@ jobs:
 
       # Style and info notes left out: the ones there today are intentional
       - name: shellcheck
-        run: shellcheck --severity=warning install.sh tmux/.config/tmux/scripts/*.sh
+        run: shellcheck --external-sources --severity=warning install.sh tmux/.config/tmux/scripts/*.sh tests/*.sh
 
       - name: stylua
         uses: JohnnyMorganz/stylua-action@v5
