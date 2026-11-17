@@ -19,7 +19,9 @@ if [ "$1" = kill ]; then
     [ "$answer" = y ] || exit 0
     ;;
   esac
-  path=$(tmux display -p -t "$2" '#{pane_current_path}')
+  # The worktree the picker shows for it: the one Claude last edited, or the
+  # pane's own directory
+  path=$(tmux display -p -t "$2" '#{?@review_dir,#{@review_dir},#{pane_current_path}}')
   scripts=$(dirname "${BASH_SOURCE[0]}")
   # Off the resume list first: closing the server's last window ends tmux
   # before its own hook could do it
@@ -32,9 +34,11 @@ fi
 
 # Windows by how much they need you (tmux.conf's @claude_rank), otherwise in
 # tmux's order. Fields: window id, session:index, mark (- when none),
-# directory, title
+# directory, title. The directory is the repo or worktree Claude last edited
+# from the window (review-dirs.sh), which for a session started in the main
+# repo is the worktree it works in; otherwise the pane's own
 ranked() {
-  tmux list-windows -a -F '#{E:@claude_rank}	#{window_id}	#{session_name}:#{window_index}	#{?@claude_wait,#{@claude_wait},-}	#{pane_current_path}	#{E:@win_title}' |
+  tmux list-windows -a -F '#{E:@claude_rank}	#{window_id}	#{session_name}:#{window_index}	#{?@claude_wait,#{@claude_wait},-}	#{?@review_dir,#{@review_dir},#{pane_current_path}}	#{E:@win_title}' |
     sort -s -n -k1,1 | cut -f2-
 }
 
@@ -48,7 +52,12 @@ if [ "$1" = list ]; then
   branches=$(cat "$2" 2>/dev/null)
   while IFS=$'\t' read -r _ _ _ dir _; do
     case $'\n'$branches$'\n' in *$'\n'"$dir"$'\t'*) continue ;; esac
-    line="$dir"$'\t'$(git -C "$dir" branch --show-current 2>/dev/null)$'\t'$(tilde "$dir")
+    # A worktree removed since, as autofix does once it is done, says so
+    if [ -d "$dir" ]; then
+      line="$dir"$'\t'$(git -C "$dir" branch --show-current 2>/dev/null)$'\t'$(tilde "$dir")
+    else
+      line="$dir"$'\t'removed$'\t'$(tilde "$dir")
+    fi
     branches+=$'\n'$line
     [ -z "$2" ] || printf '%s\n' "$line" >>"$2"
   done <<<"$rows"
