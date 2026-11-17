@@ -74,18 +74,15 @@ if [ "$1" = list ]; then
 fi
 
 self=${BASH_SOURCE[0]}
-key=$'\e[1;38;2;122;162;247m' does=$'\e[22;38;2;115;122;162m' sep=$'\e[38;2;59;66;97m'
-keys=" ${key}enter ${does}new conversation  ${sep}·  ${key}ctrl-o ${does}continue its last conversation  ${sep}·  ${key}ctrl-x ${does}remove worktree "
+# shellcheck source-path=SCRIPTDIR
+. "$(dirname "$self")/fzf-theme.sh"
 choice=$(
   list |
     fzf --reverse --delimiter '\t' --with-nth 2 --expect ctrl-o \
       --bind "start:reload(\"$self\" list pr)" \
       --bind "ctrl-x:execute(\"$(dirname "$self")/worktree-remove.sh\" ask {1})+reload(\"$self\" list pr)" \
-      --style full:sharp --info hidden --input-label ' New Claude window ' \
-      --list-label "$keys" --list-label-pos bottom \
-      --prompt '❯ ' --pointer '▌' --gutter ' ' --highlight-line \
-      --color 'fg:#a9b1d6,fg+:#7aa2f7,bg+:-1,hl:#7aa2f7,hl+:#7aa2f7,prompt:#7aa2f7,pointer:#7aa2f7' \
-      --color 'border:#7aa2f7,label:#7aa2f7,query:#c0caf5,gutter:-1'
+      "${fzf_theme[@]}" --input-label ' New Claude window ' --list-label-pos bottom \
+      --list-label "$(key_hints enter 'new conversation' ctrl-o 'continue its last conversation' ctrl-x 'remove worktree')"
 ) || exit 0
 
 key=$(head -1 <<<"$choice")

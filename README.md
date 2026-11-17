@@ -63,7 +63,7 @@ found there.
    ```
 
 3. Run `claude` once to sign in.
-4. Optional: run `gh auth login`, so the [review popup](#review-popup) can find
+4. Optional: run `gh auth login`, so the [review popup](docs/claude-code-in-tmux.md#review-popup) can find
    a branch's PR and diff against its base. Without it, the popup falls back to
    the newest `release/*` or the default branch.
 5. Optional: Ghostty already runs fish. Only if you also want it as the login
@@ -96,6 +96,10 @@ Running programs pick up an edit as follows:
 | nvim | Next time nvim starts, the review popup included |
 | fish | New shell, or `exec fish` |
 
+Before a PR that touches `tmux/`, run `tests/tmux.sh`. It checks the scripts
+behind the [Claude Code workflow](#claude-code-in-tmux) on its own tmux server
+with a scratch home, so it is safe to run any time; CI runs it too.
+
 `install.sh` puts nvim plugins back to the versions in
 `nvim/.config/nvim/lazy-lock.json`, so after `:Lazy update` commit that file, or
 the next run rolls the plugins back.
@@ -122,107 +126,30 @@ These are untracked on purpose (repo is public):
 
 ## Claude Code in tmux
 
+![Claude Code sessions in tmux: status marks, jumping to the one that asks, the review popup, both pickers and removing a merged worktree](docs/claude-code-in-tmux.gif)
+
 Every Claude Code session gets its own tmux window, started in the repo or
-worktree it works on. Pick that directory with `cmd+shift+n` when opening the
-window: a running session cannot move, and `/diff` looks at the directory it
-started in. The review popup also follows the repos and worktrees Claude edits
-from the window, such as an autofix worktree.
+worktree it works on, so several can run at once. Each window is marked with
+what its session is doing, and the keys below take you to whichever needs you.
+[docs/claude-code-in-tmux.md](docs/claude-code-in-tmux.md) has the details.
 
 | Ghostty | tmux | Does |
 |---------|------|------|
-| `cmd+p` | `prefix f` | Switch windows, with a live preview of each. Windows that need you come first, questions before finished ones; `ctrl-x` kills one, asking first if Claude is still active in it, then offers to [remove its worktree](#removing-worktrees) |
-| `cmd+i` | `prefix a` | Next Claude window waiting for you, in any session: questions first, then finished ones; press again for the one after |
-| `cmd+shift+n` | `prefix C` | New Claude Code window in a directory you pick |
-| `cmd+r` | `prefix e` | [Review popup](#review-popup) for what the window's branch changed |
+| `cmd+p` | `prefix f` | Switch windows, the ones that need you first, with a live preview; `ctrl-x` closes one and offers to [remove its worktree](docs/claude-code-in-tmux.md#removing-worktrees) |
+| `cmd+i` | `prefix a` | Next Claude window waiting for you, in any session |
+| `cmd+shift+n` | `prefix C` | [New Claude Code window](docs/claude-code-in-tmux.md#new-window-picker) in a directory you pick; pick it there, since a running session cannot move |
+| `cmd+r` | `prefix e` | [Review popup](docs/claude-code-in-tmux.md#review-popup) for what the window's branch changed |
 | `cmd+g` | `prefix g` | lazygit on the window's repo or worktree, in a popup |
 | | `prefix h` / `prefix v` | Split the pane side by side / top and bottom, in the current pane's directory; `prefix c` opens a window there |
 | | `prefix [` | Copy mode with vi keys; `v` selects, `y` copies to the clipboard |
 
-### New window picker
-
-Lists the current directory, every worktree of its repo, then the directories
-Claude Code has run in, most recent first. `enter` starts a new conversation
-there, `ctrl-o` continues that directory's last one. A directory joins the list
-once Claude Code has run in it; before that, `cd` there and pick the current
-directory.
-
-Worktrees show their PR's state (open, merged, closed) a moment after the list
-opens, and `ctrl-x` [removes](#removing-worktrees) the highlighted one, which
-is how to clear out worktrees whose PRs are done.
-
-### Removing worktrees
-
-Both pickers' `ctrl-x` use `tmux/.config/tmux/scripts/worktree-remove.sh`. It
-only offers a worktree that loses nothing: no tmux pane is in it, nothing is
-uncommitted or untracked, HEAD is on a branch, and every ignored file, such as
-an `.env` copied in, is the same as the main worktree's copy. Only build output
-skips that check: `node_modules`, `dist`, `.nx`, `.next`, `.turbo`,
-`*.tsbuildinfo` and `.DS_Store`. The branch is deleted too when its PR is
-merged or closed and the branch is still at the PR's last commit, so GitHub
-keeps every commit; otherwise it stays.
-
-### Status marks
-
-`tmux/.config/tmux/scripts/claude-wait.sh` marks each tmux window with what its
-Claude Code session is doing:
-
 | Mark | Means |
 |------|-------|
-| Cyan spinner (held still in the window picker) | Working |
-| Yellow speech bubble | Needs an answer; also a Ghostty desktop notification, unless that window is already in front of you |
-| Green check in a circle | Finished, and you have not looked yet; also a desktop notification with the first line of Claude's reply, unless that session is already in front of you |
-| Grey moon | Idle: you have looked, or no prompt yet. A window with no mark is not running Claude |
+| ⣾ | Working; a spinner on the status bar, still in the window picker |
+| <img src="docs/marks/ask.svg" height="16" alt="question"> | Needs an answer; also a Ghostty desktop notification, unless that window is already in front of you |
+| <img src="docs/marks/done.svg" height="16" alt="finished"> | Finished, and you have not looked yet; also a desktop notification with the first line of Claude's reply, unless that session is already in front of you |
+| <img src="docs/marks/idle.svg" height="16" alt="idle"> | Idle: you have looked, or no prompt yet. A window with no mark is not running Claude |
 
-Interrupting Claude with `esc` leaves the working mark until the next prompt,
-since Claude Code runs no hook for an interrupt. A turn that ends on an API
-error is marked finished, with a ⚠️ desktop notification showing the error.
-
-The icons come from the Nerd Font Ghostty uses. The right of the status bar
-counts the questions and finished windows in your other sessions, which `cmd+i`
-jumps to.
-
-Claude Code calls it from its hooks, which `install.sh` adds to
-`~/.claude/settings.json`, leaving any other hooks there alone.
-
-Windows are labelled by the conversation title Claude Code puts in the pane
-title. A session that starts with a slash command never gets one, so a window
-can override it with `@claude_label`, which stays until the window closes:
-
-```sh
-tmux set -w -t "$TMUX_PANE" @claude_label PROJ-123   # set
-tmux set -wu @claude_label                           # back to the title
-```
-
-### Resume after a restart
-
-The same hooks keep a list of the conversations running in each tmux server,
-under `~/.local/state/tmux/claude-sessions/`. After a reboot or a killed tmux
-server, the next tmux to start on the same socket reopens each one with
-`claude --resume` in the directory it started in, as a new window in the
-session it was in, so `tmux new -A -s main` attaches to them. Conversations
-ended with `/exit`, `ctrl-c`, `ctrl-d` or `/clear`, or by killing their window,
-and ones that never got a message, are not reopened.
-
-### Review popup
-
-`cmd+r` shows what the window's branch changed, in Neovim with diffview. It
-opens on the branch diff: everything since the branch forked from its base,
-committed or not. When Claude also edited other repos or worktrees from this
-window, such as an autofix worktree, and more than one has changes, it asks
-which to open.
-
-| Key | Does |
-|-----|------|
-| `1` | Branch diff (where it starts) |
-| `2` | Only the uncommitted changes |
-| `3` | The branch's commits one at a time; `L` shows the full message |
-| `<S-h>` / `<S-l>` | Previous / next changed file |
-| `<leader>/`, `gd`, `gr` | Search or jump; opens in a new tab so the diff stays, `:q` comes back |
-| `<leader>ge` | Toggle editing |
-| `:qa` | Close the popup |
-
-- It starts read-only so a stray key cannot change a file; `<leader>ge` allows
-  edits, which go to the real files.
-- `1` leaves out files that were never `git add`ed; `2` shows them.
-- The base is the PR's base branch, or else the newest `release/*` or the
-  default branch. Without any, only `2` works.
+The right of the status bar counts the questions and finished windows in your
+other sessions. After a reboot, the next tmux reopens the conversations that
+were running ([how](docs/claude-code-in-tmux.md#resume-after-a-restart)).

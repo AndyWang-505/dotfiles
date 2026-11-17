@@ -1,0 +1,26 @@
+name: Test
+
+# The tmux scripts behind the Claude Code workflow, on macOS for its bash 3.2
+on:
+  pull_request:
+    paths:
+      - tmux/**
+      - tests/**
+      - .github/workflows/test.yml
+  push:
+    branches: [main]
+    paths:
+      - tmux/**
+      - tests/**
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tmux:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v7
+      - run: brew install tmux jq
+      - run: tests/tmux.sh
