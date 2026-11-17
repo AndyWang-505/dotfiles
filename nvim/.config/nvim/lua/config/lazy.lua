@@ -20,9 +20,9 @@ require("lazy").setup({
     { "LazyVim/LazyVim", import = "lazyvim.plugins" },
     -- import/override with your plugins
     { import = "plugins" },
-    -- Specs tied to one employer's repos. lazy.nvim raises "No specs found for
-    -- module" when an imported directory holds no .lua at all, so plugins/local
-    -- ships an init.lua returning {} for machines that have none of them.
+    -- Specs only some repos need, kept on the machine. lazy.nvim raises "No
+    -- specs found for module" when an imported directory holds no .lua at all,
+    -- so plugins/local ships an init.lua returning {} for machines with none.
     { import = "plugins.local" },
   },
   install = { colorscheme = { "tokyonight", "habamax" } },

@@ -2,7 +2,7 @@
 -- Default keymaps that are always set: https://github.com/LazyVim/LazyVim/blob/main/lua/lazyvim/config/keymaps.lua
 -- Add any additional keymaps here
 
--- Keymaps that only make sense inside one employer's repos live in
+-- Keymaps that only some repos need live in
 -- config/local.lua, which this repo does not track.
 pcall(require, "config.local")
 
