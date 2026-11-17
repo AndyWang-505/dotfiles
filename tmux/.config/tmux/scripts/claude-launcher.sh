@@ -74,7 +74,6 @@ if [ "$1" = list ]; then
 fi
 
 self=${BASH_SOURCE[0]}
-# Key hints for the list's bottom edge, styled like the window picker's
 key=$'\e[1;38;2;122;162;247m' does=$'\e[22;38;2;115;122;162m' sep=$'\e[38;2;59;66;97m'
 keys=" ${key}enter ${does}new conversation  ${sep}·  ${key}ctrl-o ${does}continue its last conversation  ${sep}·  ${key}ctrl-x ${does}remove worktree "
 choice=$(
