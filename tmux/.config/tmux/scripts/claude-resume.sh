@@ -1,15 +1,17 @@
 #!/usr/bin/env bash
 # Brings back the Claude conversations that were open when the previous tmux
 # server went down; tmux.conf runs it as the server starts. claude-wait.sh keeps
-# one list per server, named <start time>-<pid>; this reads the newest one from
-# a server that is no longer running. Each conversation opens as a new window in
-# the session it was in, which is created if missing. Prints nothing, since
-# tmux would show any output in a pane.
+# one list per server, named <socket>-<start time>-<pid>; this reads the newest
+# one from a server on the same socket that is no longer running, so a second
+# server (tmux -L) never takes the main one's conversations. Each conversation
+# opens as a new window in the session it was in, which is created if missing.
+# Prints nothing, since tmux would show any output in a pane.
 
 dir=${XDG_STATE_HOME:-$HOME/.local/state}/tmux/claude-sessions
+# The server has no session yet, so the socket comes from $TMUX
+socket=$(basename "${TMUX%%,*}")
 
-# A list belongs to a running server when its pid is still a tmux process; a
-# second server (tmux -L) is left alone
+# A list belongs to a running server when its pid is still a tmux process
 running_server() {
   local pid=${1##*-}
   [ "$(ps -p "$pid" -o comm= 2>/dev/null | sed 's|.*/||')" = tmux ]
@@ -17,9 +19,12 @@ running_server() {
 
 list=
 stale=()
-for file in "$dir"/*.tsv; do
+for file in "$dir/$socket"-*.tsv; do
   [ -e "$file" ] || continue
-  running_server "$(basename "$file" .tsv)" && continue
+  base=$(basename "$file" .tsv)
+  # A socket named like this one plus "-something" matches the glob too
+  [ "${base%-*-*}" = "$socket" ] || continue
+  running_server "$base" && continue
   stale+=("$file")
   { [ -z "$list" ] || [ "$file" -nt "$list" ]; } && list=$file
 done
@@ -36,8 +41,11 @@ running=$(tmux list-panes -a -F '#{@claude_session}')
 while IFS=$'\t' read -r session cwd name; do
   [ -n "$session" ] && [ -d "$cwd" ] && [ -f "$(transcript "$cwd" "$session")" ] || continue
   grep -qxF "$session" <<<"$running" && continue
-  tmux has-session -t "=$name" 2>/dev/null || tmux new-session -d -s "$name" -c "$cwd"
-  tmux new-window -d -t "=$name:" -c "$cwd" claude --resume "$session"
+  if tmux has-session -t "=$name" 2>/dev/null; then
+    tmux new-window -d -t "=$name:" -c "$cwd" claude --resume "$session"
+  else
+    tmux new-session -d -s "$name" -c "$cwd" claude --resume "$session"
+  fi
 done <"$list"
 
 # Lists from servers that are gone are used up, older ones included

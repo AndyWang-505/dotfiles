@@ -34,17 +34,22 @@ claude_dirs() {
 
 candidates() {
   printf 'current\t%s\n' "$PWD"
+  # A prunable worktree's directory is gone
   git worktree list --porcelain 2>/dev/null |
-    awk '/^worktree /{ dir = substr($0, 10); branch = "" }
+    awk '/^worktree /{ dir = substr($0, 10); branch = ""; gone = 0 }
       /^branch /{ branch = substr($0, 19) }
-      /^$/{ printf "worktree\t%s\t%s\n", dir, branch }'
+      /^prunable/{ gone = 1 }
+      /^$/ && !gone { printf "worktree\t%s\t%s\n", dir, branch }'
   claude_dirs
 }
 
-# Branch and state of the repo's PRs, newest first
+# Each worktree branch's latest PR state, looked up the same way as
+# worktree-remove.sh does, all branches at once
 pr_states() {
-  gh pr list --state all --limit 100 --json headRefName,state \
-    -q '.[] | "\(.headRefName)\t\(.state)"' 2>/dev/null
+  # shellcheck disable=SC2016 # $1 is expanded by the inner sh
+  git worktree list --porcelain 2>/dev/null | sed -n 's|^branch refs/heads/||p' |
+    xargs -P 8 -I {} sh -c 'printf "%s\t%s\n" "$1" \
+      "$(gh pr list --head "$1" --state all --limit 1 --json state -q ".[].state" 2>/dev/null)"' _ {}
 }
 
 # `list pr` adds each worktree's PR state. The first listing of a directory
@@ -54,7 +59,7 @@ list() {
     [ "$1" = pr ] && pr_states | sed 's/^/pr	/'
     candidates
   } | awk -F'\t' -v home="$HOME" '
-    $1 == "pr" { if (!($2 in state)) state[$2] = tolower($3); next }
+    $1 == "pr" { if ($3 != "") state[$2] = tolower($3); next }
     seen[$2]++ { next }
     {
       shown = $2; sub("^" home, "~", shown)

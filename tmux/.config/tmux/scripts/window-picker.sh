@@ -16,8 +16,12 @@ if [ "$1" = kill ]; then
   esac
   path=$(tmux display -p -t "$2" '#{pane_current_path}')
   tmux kill-window -t "$2"
+  scripts=$(dirname "${BASH_SOURCE[0]}")
+  # Takes its conversation off the resume list, which Claude's own hook may
+  # not get to as it is killed
+  "$scripts/claude-wait.sh" snapshot
   # Then offers to remove the worktree it ran in, if nothing would be lost
-  "$(dirname "${BASH_SOURCE[0]}")/worktree-remove.sh" offer "$path"
+  "$scripts/worktree-remove.sh" offer "$path"
   exit 0
 fi
 

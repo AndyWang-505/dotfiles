@@ -132,7 +132,8 @@ from the window, such as an autofix worktree.
 |---------|------|------|
 | `cmd+p` | `prefix f` | Switch windows, with a live preview of each; `ctrl-x` kills one, asking first if Claude is still active in it, then offers to [remove its worktree](#removing-worktrees) |
 | `cmd+i` | `prefix a` | Next Claude window waiting for you, in any session: 💬 first, then ✅; press again for the one after |
-| `cmd+shift+n` | `prefix C` | New Claude Code window in a directory you pick || `cmd+r` | `prefix e` | [Review popup](#review-popup) for what the window's branch changed |
+| `cmd+shift+n` | `prefix C` | New Claude Code window in a directory you pick |
+| `cmd+r` | `prefix e` | [Review popup](#review-popup) for what the window's branch changed |
 | | `prefix h` / `prefix v` | Split the pane side by side / top and bottom |
 | | `prefix [` | Copy mode with vi keys; `v` selects, `y` copies to the clipboard |
 
@@ -152,11 +153,12 @@ is how to clear out worktrees whose PRs are done.
 
 Both pickers' `ctrl-x` use `tmux/.config/tmux/scripts/worktree-remove.sh`. It
 only offers a worktree that loses nothing: no tmux pane is in it, nothing is
-uncommitted or untracked, and every ignored file, such as an `.env` copied in,
-is the same as the main worktree's copy. Ignored directories like
-`node_modules` and `*.tsbuildinfo` are build output and do not count. The
-branch is deleted too when its PR is merged or closed and the branch is still
-at the PR's last commit, so GitHub keeps every commit; otherwise it stays.
+uncommitted or untracked, HEAD is on a branch, and every ignored file, such as
+an `.env` copied in, is the same as the main worktree's copy. Only build output
+skips that check: `node_modules`, `dist`, `.nx`, `.next`, `.turbo`,
+`*.tsbuildinfo` and `.DS_Store`. The branch is deleted too when its PR is
+merged or closed and the branch is still at the PR's last commit, so GitHub
+keeps every commit; otherwise it stays.
 
 ### Status marks
 
@@ -186,10 +188,11 @@ tmux set -wu @claude_label                           # back to the title
 
 The same hooks keep a list of the conversations running in each tmux server,
 under `~/.local/state/tmux/claude-sessions/`. After a reboot or a killed tmux
-server, the next tmux to start reopens each one with `claude --resume` in the
-directory it started in, as a new window in the session it was in, so
-`tmux new -A -s main` attaches to them. Conversations ended with `/exit` or by
-killing their window, and ones that never got a message, are not reopened.
+server, the next tmux to start on the same socket reopens each one with
+`claude --resume` in the directory it started in, as a new window in the
+session it was in, so `tmux new -A -s main` attaches to them. Conversations
+ended with `/exit`, `ctrl-c`, `ctrl-d` or `/clear`, or by killing their window,
+and ones that never got a message, are not reopened.
 
 ### Review popup
 

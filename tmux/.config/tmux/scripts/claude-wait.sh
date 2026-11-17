@@ -3,8 +3,8 @@
 # into status bar marks. Wired up in ~/.claude/settings.json:
 #   Notification -> ask, Stop -> done, UserPromptSubmit / PostToolUse -> run,
 #   SessionStart -> idle, SessionEnd -> clear
-[ -n "$TMUX_PANE" ] || exit 0
-input=$(cat)
+# `claude-wait.sh snapshot` only rewrites the list below, for window-picker.sh
+# after it kills a window.
 
 # Each pane remembers the conversation it runs and the directory Claude started
 # in, and every tmux server keeps a list of its running conversations, so
@@ -18,22 +18,23 @@ remember() {
   [ -n "$session" ] || return
   [ "$session" = "$(tmux show -pv -t "$TMUX_PANE" @claude_session 2>/dev/null)" ] && return
   tmux set -p -t "$TMUX_PANE" @claude_session "$session"
-  # Kept across /clear: conversations stay under the directory Claude started
-  # in, even after it has cd'ed elsewhere
+  # Set once, from the directory Claude started in: its conversations stay
+  # filed under it after Claude cd's elsewhere. /clear unsets it
   if [ -z "$(tmux show -pv -t "$TMUX_PANE" @claude_dir 2>/dev/null)" ]; then
     cwd=$(jq -r '.cwd // empty' <<<"$input" 2>/dev/null)
     tmux set -p -t "$TMUX_PANE" @claude_dir "${cwd:-$PWD}"
   fi
 }
-# Named by server start time and pid, so a new server that happens to reuse an
-# old pid does not overwrite the old list. Hooks from several panes can run at
-# once, so each writes its own temporary file before moving it into place.
+# Named by socket, server start time and pid: claude-resume.sh only takes lists
+# from its own socket, and a new server that happens to reuse an old pid does
+# not overwrite the old list. Hooks from several panes can run at once, so each
+# writes its own temporary file before moving it into place.
 snapshot() {
   local server panes
-  server=$(tmux display -p '#{start_time}-#{pid}') || return
+  server=$(tmux display -p '#{b:socket_path}-#{start_time}-#{pid}') || return
   panes=$(tmux list-panes -a -F '#{@claude_session}	#{@claude_dir}	#{session_name}') || return
   mkdir -p "$sessions" &&
-    awk -F'\t' '$1 != ""' <<<"$panes" >"$sessions/.$server.$$" &&
+    awk -F'\t' '$1 != "" && !seen[$1]++' <<<"$panes" >"$sessions/.$server.$$" &&
     mv "$sessions/.$server.$$" "$sessions/$server.tsv"
 }
 
@@ -57,6 +58,12 @@ notify() {
   done
 }
 
+if [ "$1" = snapshot ]; then
+  snapshot
+  exit 0
+fi
+[ -n "$TMUX_PANE" ] || exit 0
+input=$(cat)
 [ "$1" = clear ] || remember
 
 case "$1" in
@@ -87,7 +94,14 @@ done)
   ;;
 clear)
   tmux set -wu -t "$TMUX_PANE" @claude_wait
-  tmux set -pu -t "$TMUX_PANE" @claude_session \; set -pu -t "$TMUX_PANE" @claude_dir
+  # Only a conversation you ended leaves the list. Any other reason, such as
+  # the SIGTERM a shutdown sends before tmux goes down, keeps it so it comes
+  # back; a killed window drops out anyway, since its pane is gone
+  case "$(jq -r '.reason // empty' <<<"$input" 2>/dev/null)" in
+  prompt_input_exit | clear | logout)
+    tmux set -pu -t "$TMUX_PANE" @claude_session \; set -pu -t "$TMUX_PANE" @claude_dir
+    ;;
+  esac
   ;;
 esac
 snapshot
