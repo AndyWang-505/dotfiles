@@ -5,8 +5,17 @@
 # ctrl-x closes the highlighted window. Windows are picked by tmux window id
 # (@3): their numbers shift as windows close
 
+here=$(dirname "${BASH_SOURCE[0]}")
 # shellcheck source-path=SCRIPTDIR
-. "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+. "$here/lib.sh"
+
+# The subagents a window's Claude conversation is running (claude-agents.sh)
+#   window_agents <window id>
+window_agents() {
+  local session dir
+  IFS=$'\t' read -r session dir < <(tmux display -p -t "$1" '#{@claude_session}	#{@claude_dir}')
+  [ -z "$session" ] || "$here/claude-agents.sh" "$(claude_agents_dir "$session" "$dir")"
+}
 
 if [ "$1" = kill ]; then
   name=$(tmux display -p -t "$2" '#{session_name}:#{window_index}') || exit 0
@@ -61,9 +70,16 @@ if [ "$1" = list ]; then
     branches+=$'\n'$line
     [ -z "$2" ] || printf '%s\n' "$line" >>"$2"
   done <<<"$rows"
+  # How many subagents each window runs, "window id <tab> count" per line
+  agents=$(tmux list-windows -a -F '#{window_id}	#{@claude_session}	#{@claude_dir}' |
+    while IFS=$'\t' read -r window session dir; do
+      [ -n "$session" ] || continue
+      count=$("$here/claude-agents.sh" "$(claude_agents_dir "$session" "$dir")" | wc -l)
+      [ "$count" -eq 0 ] || printf '%s\t%d\n' "$window" "$count"
+    done)
   # Marks and their colours as tmux.conf defines them, one "state icon #rrggbb" per line
   marks=$(tmux display -p "$(printf 'ask #{@mark_ask} #{@mark_ask_fg}\ndone #{@mark_done} #{@mark_done_fg}\nrunning #{@mark_running} #{@mark_running_fg}\nidle #{@mark_idle} #{@mark_idle_fg}')")
-  BRANCHES=$branches MARKS=$marks awk -F'\t' '
+  AGENTS=$agents BRANCHES=$branches MARKS=$marks awk -F'\t' '
     function rgb(hex) {
       return sprintf("\033[38;2;%d;%d;%dm", hexbyte(substr(hex, 2, 2)), hexbyte(substr(hex, 4, 2)), hexbyte(substr(hex, 6, 2)))
     }
@@ -73,14 +89,37 @@ if [ "$1" = list ]; then
       for (i = 1; i <= n; i++) { split(lines[i], f, "\t"); branch[f[1]] = f[2]; shown[f[1]] = f[3] }
       n = split(ENVIRON["MARKS"], lines, "\n")
       for (i = 1; i <= n; i++) { split(lines[i], f, " "); mark[f[1]] = rgb(f[3]) f[2] }
+      n = split(ENVIRON["AGENTS"], lines, "\n")
+      for (i = 1; i <= n; i++) { split(lines[i], f, "\t"); agents[f[1]] = f[2] }
       dim = "\033[38;2;84;92;126m"; reset = "\033[0m"
     }
     {
       id = $1; target = $2; state = $3; dir = $4; title = $5
       icon = state in mark ? mark[state] : " "
       extra = branch[dir] == "" ? "" : "  ·  " branch[dir]
+      if (id in agents) extra = extra "  ·  " mark["running"] " " agents[id] (agents[id] > 1 ? " agents" : " agent") dim
       printf "%s\t %s%s  \033[1m%s%s\n    %s%s  ·  %s%s%s%c", id, icon, reset, title, reset, dim, target, shown[dir], extra, reset, 0
     }' <<<"$rows"
+  exit 0
+fi
+
+# The preview: the window's running subagents, if any, above its screen. The
+# screen loses as many lines from its top, so Claude's prompt stays in view
+#   window-picker.sh preview <window id>
+if [ "$1" = preview ]; then
+  rows=$(window_agents "$2")
+  if [ -n "$rows" ]; then
+    IFS=' ' read -r icon fg < <(tmux display -p '#{@mark_running} #{@mark_running_fg}')
+    colour=$(printf '\033[38;2;%d;%d;%dm' $((16#${fg:1:2})) $((16#${fg:3:2})) $((16#${fg:5:2})))
+    while IFS=$'\t' read -r description tool secs; do
+      printf '%s%s\033[0m \033[1m%s\033[0m\n    \033[38;2;84;92;126m%s%dm%02ds\033[0m\n' \
+        "$colour" "$icon" "$description" "${tool:+$tool · }" $((secs / 60)) $((secs % 60))
+    done <<<"$rows"
+    echo
+    tmux capture-pane -ep -t "$2" | tail -n +$(($(wc -l <<<"$rows") * 2 + 2))
+  else
+    tmux capture-pane -ep -t "$2"
+  fi
   exit 0
 fi
 
@@ -110,7 +149,7 @@ while sleep 1; do
   last_items=$now
   shown=$(curl -s --unix-socket "$socket" 'http://localhost?limit=0' 2>/dev/null | jq -r '.current.text // "" | split("\t")[0]')
   [ -n "$shown" ] || continue
-  screen=$(tmux capture-pane -ep -t "$shown" 2>/dev/null | cksum)
+  screen=$("$self" preview "$shown" 2>/dev/null | cksum)
   [ "$shown $screen" = "${last_screen:=$shown $screen}" ] || fzf_do refresh-preview
   last_screen="$shown $screen"
 done &
@@ -124,6 +163,6 @@ target=$(
     --bind "start:pos(${position:-1})" \
     --bind "ctrl-x:execute(\"$self\" kill {1})+reload($list)" \
     --bind 'focus:transform-preview-label:tmux display -p -t {1} " #{session_name}:#{window_index} "' \
-    --preview 'tmux capture-pane -ep -t {1}' --preview-window 'right,55%'
+    --preview "\"$self\" preview {1}" --preview-window 'right,55%'
 ) || exit 0
 tmux switch-client -t "${target%%$'\t'*}"

@@ -92,7 +92,7 @@ works.
 
 | Ghostty | tmux | Does |
 |---------|------|------|
-| `cmd+p` | `prefix f` | Switch windows, the ones that need you first, with a live preview; `ctrl-x` closes one and offers to [remove its worktree](docs/claude-code-in-tmux.md#removing-worktrees) |
+| `cmd+p` | `prefix f` | Switch windows, the ones that need you first, with a live preview and the subagents each runs; `ctrl-x` closes one and offers to [remove its worktree](docs/claude-code-in-tmux.md#removing-worktrees) |
 | `cmd+i` | `prefix a` | Next Claude window waiting for you, in any session |
 | `cmd+shift+n` | `prefix C` | [New Claude Code window](docs/claude-code-in-tmux.md#new-window-picker) in a directory you pick; pick it there, since a running session cannot move |
 | `cmd+r` | `prefix e` | [Review popup](docs/claude-code-in-tmux.md#review-popup) for what the window's branch changed |

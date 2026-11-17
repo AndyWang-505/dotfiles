@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Tests for the tmux scripts behind the Claude Code workflow: the window marks
 # Claude's hooks set, the resume list and reopening it after a restart, the
-# window picker's list, and removing worktrees. Each runs on its own tmux server
+# window picker's list and preview, and removing worktrees. Each runs on its own tmux server
 # with a scratch HOME, so your tmux, ~/.claude and repos are left alone.
 #   tests/tmux.sh
 set -u
@@ -218,6 +218,25 @@ rm -rf "$HOME/edited"
 listed=$("$scripts/window-picker.sh" list | tr '\0' '\n' | sed $'s/\e\\[[0-9;]*m//g')
 check 'a worktree removed since says so' removed "$(awk -F '  ·  ' '/main:1/ { print $3 }' <<<"$listed")"
 check 'a window without edits shows its own directory' '~' "$(awk -F '  ·  ' '/main:0/ { print $2 }' <<<"$listed")"
+# The subagents a Claude window runs: the list counts them, the preview names them
+agents=$(claude_agents_dir conv-a "$work/proj")
+mkdir -p "$agents" && cd "$agents" || exit 1
+echo 'not json' >a0.meta.json && touch a0.jsonl
+echo '{"description":"Running","finished":false}' >a1.meta.json && touch a1.jsonl
+echo '{"description":"Done","finished":true}' >a2.meta.json && touch a2.jsonl
+echo '{"description":"Stale","finished":false}' >a3.meta.json && touch -t 202001010000 a3.jsonl
+echo '{"description":"Second"}' >a4.meta.json
+echo '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Grep"}]}}' >a4.jsonl
+cd "$repo" || exit 1
+check 'running subagents are listed with their last tool' 'Running||Second|Grep|' \
+  "$("$scripts/claude-agents.sh" "$agents" | cut -f1,2 | tr '\t\n' '||')"
+tm set -p -t main:2 @claude_session conv-a \; set -p -t main:2 @claude_dir "$work/proj"
+listed=$("$scripts/window-picker.sh" list | tr '\0' '\n' | sed $'s/\e\\[[0-9;]*m//g')
+check 'the list counts the subagents a window runs' 1 "$(grep 'main:2' <<<"$listed" | grep -c '2 agents$')"
+check 'and only there' 1 "$(grep -c 'agent' <<<"$listed")"
+preview=$("$scripts/window-picker.sh" preview "$(tm display -p -t main:2 '#{window_id}')" | sed $'s/\e\\[[0-9;]*m//g')
+check 'the preview names them above the screen' 'Running|Second|Grep · 0m00s|' \
+  "$(sed -n '1p;3,4p' <<<"$preview" | sed 's/^[^ ]* //; s/^ *//' | tr '\n' '|')"
 
 echo '# Removing worktrees'
 printf '#!/bin/sh\n[ -n "${FAKE_PR:-}" ] && printf "%%s\\n" "$FAKE_PR"\nexit 0\n' >"$work/bin/gh"

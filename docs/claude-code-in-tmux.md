@@ -23,6 +23,11 @@ look at the directory it started in. Ghostty's `cmd` keys send the tmux
 The status bar shows each window's mark; its right side counts the questions
 and finished turns waiting in your other sessions.
 
+The window picker (`cmd+p`) also shows the subagents each Claude window is
+running: their count in the list, and in the preview each one's task, the tool
+it last called and how long it has run, above the window's screen. A subagent
+quiet for 15 minutes is left out, as one a crash left behind.
+
 ## Notifications
 
 A question sends a Ghostty desktop notification unless its window is already
