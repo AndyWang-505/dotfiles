@@ -22,3 +22,6 @@ keybind = cmd+shift+n=text:\x01C
 
 # Sends tmux prefix (C-a) + e to open the review popup
 keybind = cmd+r=text:\x01e
+
+# Sends tmux prefix (C-a) + a to jump to the next Claude window waiting for you
+keybind = cmd+i=text:\x01a
