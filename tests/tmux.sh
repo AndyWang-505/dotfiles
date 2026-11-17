@@ -206,6 +206,18 @@ check 'questions first, then finished, then the rest' 'main:2|main:1|main:0|main
   "$(sed -n 's/^ *\(main:[0-9]\).*/\1/p' <<<"$listed" | tr '\n' '|')"
 check 'items are keyed by window id' "$(tm display -p -t main:2 '#{window_id}')" "$(head -1 <<<"$listed" | cut -f1)"
 check 'the home directory is shortened' '~' "$(awk -F '  ·  ' '/main:0/ { print $2 }' <<<"$listed")"
+# A session started in the main repo that edits a worktree shows the worktree
+git init -q "$HOME/edited" && git -C "$HOME/edited" checkout -q -b feature/edited
+review_pane=$(tm display -p -t main:1 '#{pane_id}')
+TMUX_PANE=$review_pane "$scripts/review-dirs.sh" <<<"{\"tool_input\":{\"file_path\":\"$HOME/edited/a.ts\"}}"
+listed=$("$scripts/window-picker.sh" list | tr '\0' '\n' | sed $'s/\e\\[[0-9;]*m//g')
+# shellcheck disable=SC2088 # the literal ~ is what the picker prints
+check 'a window shows the repo Claude last edited from it' '~/edited  ·  feature/edited' \
+  "$(awk -F '  ·  ' '/main:1/ { print $2 "  ·  " $3 }' <<<"$listed")"
+rm -rf "$HOME/edited"
+listed=$("$scripts/window-picker.sh" list | tr '\0' '\n' | sed $'s/\e\\[[0-9;]*m//g')
+check 'a worktree removed since says so' removed "$(awk -F '  ·  ' '/main:1/ { print $3 }' <<<"$listed")"
+check 'a window without edits shows its own directory' '~' "$(awk -F '  ·  ' '/main:0/ { print $2 }' <<<"$listed")"
 
 echo '# Removing worktrees'
 printf '#!/bin/sh\n[ -n "${FAKE_PR:-}" ] && printf "%%s\\n" "$FAKE_PR"\nexit 0\n' >"$work/bin/gh"
