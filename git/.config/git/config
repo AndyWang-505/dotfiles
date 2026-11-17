@@ -1,4 +1,4 @@
-# Machine-local settings (URL rewrites, employer identity) live in ~/.gitconfig,
+# Machine-local settings (GitHub over HTTPS, a work identity) live in ~/.gitconfig,
 # which git reads after this file, so they win on conflict.
 [user]
 	name = andy505

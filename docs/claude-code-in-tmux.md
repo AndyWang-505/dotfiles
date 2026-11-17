@@ -1,7 +1,34 @@
 # Claude Code in tmux
 
-How the pieces in the [README's Claude Code section](../README.md#claude-code-in-tmux)
+For using the workflow day to day: how the windows, marks, pickers and review
+popup in the [README's Claude Code section](../README.md#claude-code-in-tmux)
 behave. The scripts live in `tmux/.config/tmux/scripts/`.
+
+- [Windows and keys](#windows-and-keys)
+- [Notifications](#notifications)
+- [New window picker](#new-window-picker)
+- [Removing worktrees](#removing-worktrees)
+- [Status marks](#status-marks)
+- [Resume after a restart](#resume-after-a-restart)
+- [Review popup](#review-popup)
+
+## Windows and keys
+
+Each Claude Code session gets its own window, started in the repo or worktree
+it works on: a running session cannot move, and `/diff` and the review popup
+look at the directory it started in. Ghostty's `cmd` keys send the tmux
+`prefix` keys, so they only work inside tmux. `prefix h`, `prefix v` and
+`prefix c` open the new pane or window in the current pane's directory.
+
+The status bar shows each window's mark; its right side counts the questions
+and finished turns waiting in your other sessions.
+
+## Notifications
+
+A question sends a Ghostty desktop notification unless its window is already
+in front of you. A finished turn sends one with the first line of Claude's
+reply, and a turn that fails on an API error sends a ⚠️ one with the error,
+unless that session is already in front of you.
 
 ## New window picker
 
@@ -88,6 +115,10 @@ ended with `/exit`, `ctrl-c`, `ctrl-d` or `/clear`, or by killing their window,
 and ones that never got a message, are not reopened.
 
 ## Review popup
+
+The popup is two pieces: `tmux/.config/tmux/scripts/review.sh` picks the repo
+or worktree, and the nvim package's `lua/review_popup.lua` shows it, so it
+needs both packages.
 
 `cmd+r` shows what the window's branch changed, in Neovim with diffview. It
 opens on the branch diff: everything since the branch forked from its base,

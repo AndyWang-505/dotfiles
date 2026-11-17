@@ -43,12 +43,12 @@ HOMEBREW_NO_INSTALL_CLEANUP=1 brew bundle install --no-upgrade --file="$DOTFILES
 
 # ------------------------------------------------------- machine-local files --
 # The git package carries name, aliases and the personal identity. ~/.gitconfig
-# holds what differs per machine: URL rewrites that exist only because a given
-# work repo cannot be cloned over SSH here, and the employer identity, which
-# names the employer and so stays out of this public repo.
-# Written key by key rather than as one template: a ~/.gitconfig that another
-# tool already created still has to end up with the URL rewrite, which is the one
-# setting here that is painful to rediscover.
+# holds what differs per machine, such as an optional second identity for work
+# repos, which stays out of this public repo.
+# GitHub's SSH URLs go over HTTPS, signed in through `gh auth login`, so a new
+# machine clones and pushes without setting up an SSH key first. Set key by key
+# rather than as one template, so a ~/.gitconfig another tool already created
+# still gets it.
 GITCONFIG="$HOME/.gitconfig"
 
 if [ -f "$GITCONFIG" ]; then
@@ -57,7 +57,7 @@ else
   log "Creating ~/.gitconfig"
   cat >"$GITCONFIG" <<'EOF'
 # Machine-local. Not tracked by the dotfiles repo.
-# Employer identity, picked by the repo's remote:
+# Optional second identity, for example for work repos, picked by the remote:
 # [includeIf "hasconfig:remote.*.url:https://github.com/<org>/**"]
 # 	path = ~/.config/git/work.gitconfig
 EOF
@@ -114,8 +114,9 @@ fi
 
 # The tmux status marks only move if Claude Code calls claude-wait.sh, and the
 # review popups only find the worktrees Claude edited if it calls
-# review-dirs.sh. Each script is added to an event only when no hook of that
-# event mentions it yet, so re-runs and hooks added by hand are left alone.
+# review-dirs.sh. A script missing from an event is added; one already there
+# gets the current arguments, keeping its other settings (a timeout, a
+# matcher). Other hooks are left alone.
 CLAUDE_SETTINGS="$HOME/.claude/settings.json"
 claude_hooks=$(jq -n '
   def hook($event; $script; $arg; $matcher):
@@ -138,7 +139,11 @@ settings_tmp=$(mktemp)
 if jq --argjson add "$claude_hooks" '
   .hooks //= {}
   | reduce $add[] as $hook (.;
-      if (.hooks[$hook.event] // [] | tostring | contains($hook.script)) then .
+      if (.hooks[$hook.event] // [] | tostring | contains($hook.script)) then
+        .hooks[$hook.event] |= map(
+          if .hooks then
+            .hooks |= map(if (.command // "" | contains($hook.script)) then .command = $hook.entry.hooks[0].command else . end)
+          else . end)
       else .hooks[$hook.event] += [$hook.entry] end)
 ' "$CLAUDE_SETTINGS" >"$settings_tmp"; then
   if [ "$(jq -S . "$settings_tmp")" = "$(jq -S . "$CLAUDE_SETTINGS")" ]; then
@@ -193,7 +198,7 @@ LOCKFILE="$DOTFILES_DIR/nvim/.config/nvim/lazy-lock.json"
 
 # After a restore lazy.nvim rewrites lazy-lock.json from the plugins in the
 # current spec, so on a machine without plugins/local it drops the pins of the
-# employer-only plugins. The plugins themselves are already at the pinned
+# machine-local plugins. The plugins themselves are already at the pinned
 # commits, so putting the tracked file back loses nothing. Only done when we are
 # the ones who dirtied it.
 lock_was_clean=false
@@ -219,15 +224,14 @@ cat <<EOF
 Next steps (also in the README, under "After the first run"). Do them in
 Ghostty: Terminal's zsh does not have Homebrew on its PATH.
   1. Open Ghostty. It starts fish; \`t\` attaches the shared tmux session.
-  2. Fill in the machine-local files. Until work.gitconfig has an email, git
-     refuses to commit in work repos.
-       nvim ~/.gitconfig                      # uncomment the employer includeIf
-       nvim ~/.config/git/work.gitconfig      # [user] email = ...
-       nvim ~/.config/fish/config-local.fish  # credentials, work env vars
+  2. Run \`gh auth login\`: git reaches GitHub over HTTPS with it, and the
+     review popup finds a branch's PR.
   3. Run \`claude\` once to sign in.
-  4. Optional: run \`gh auth login\`, so the review popup can find a branch's
-     PR and diff against its base. Without it, the popup falls back to the
-     newest release/* or the default branch.
+  4. Optional: machine-local settings, kept out of this repo.
+       nvim ~/.config/fish/config-local.fish  # credentials, env vars
+     A second git identity, for example for work repos:
+       nvim ~/.gitconfig                      # uncomment the includeIf
+       nvim ~/.config/git/work.gitconfig      # [user] email = ...
   5. Optional: Ghostty already runs fish. Only if you also want it as the login
      shell:
        echo \$(brew --prefix)/bin/fish | sudo tee -a /etc/shells
