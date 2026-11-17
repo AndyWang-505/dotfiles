@@ -125,6 +125,7 @@ claude_hooks=$(jq -n '
   [
     hook("Notification"; "claude-wait.sh"; " ask"; null),
     hook("Stop"; "claude-wait.sh"; " done"; null),
+    hook("StopFailure"; "claude-wait.sh"; " failed"; null),
     hook("UserPromptSubmit"; "claude-wait.sh"; " run"; null),
     hook("PostToolUse"; "claude-wait.sh"; " run"; "*"),
     hook("PostToolUse"; "review-dirs.sh"; ""; "Edit|Write|MultiEdit|NotebookEdit"),

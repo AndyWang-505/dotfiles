@@ -130,11 +130,12 @@ from the window, such as an autofix worktree.
 
 | Ghostty | tmux | Does |
 |---------|------|------|
-| `cmd+p` | `prefix f` | Switch windows, with a live preview of each; `ctrl-x` kills one, asking first if Claude is still active in it, then offers to [remove its worktree](#removing-worktrees) |
-| `cmd+i` | `prefix a` | Next Claude window waiting for you, in any session: 💬 first, then ✅; press again for the one after |
+| `cmd+p` | `prefix f` | Switch windows, with a live preview of each. Windows that need you come first, questions before finished ones; `ctrl-x` kills one, asking first if Claude is still active in it, then offers to [remove its worktree](#removing-worktrees) |
+| `cmd+i` | `prefix a` | Next Claude window waiting for you, in any session: questions first, then finished ones; press again for the one after |
 | `cmd+shift+n` | `prefix C` | New Claude Code window in a directory you pick |
 | `cmd+r` | `prefix e` | [Review popup](#review-popup) for what the window's branch changed |
-| | `prefix h` / `prefix v` | Split the pane side by side / top and bottom |
+| `cmd+g` | `prefix g` | lazygit on the window's repo or worktree, in a popup |
+| | `prefix h` / `prefix v` | Split the pane side by side / top and bottom, in the current pane's directory; `prefix c` opens a window there |
 | | `prefix [` | Copy mode with vi keys; `v` selects, `y` copies to the clipboard |
 
 ### New window picker
@@ -167,10 +168,18 @@ Claude Code session is doing:
 
 | Mark | Means |
 |------|-------|
-| 🔄 | Working |
-| 💬 | Needs an answer; also a Ghostty desktop notification, unless that window is already in front of you |
-| ✅ | Finished, and you have not looked yet |
-| 💤 | You have looked, or no prompt yet |
+| Cyan spinner (held still in the window picker) | Working |
+| Yellow speech bubble | Needs an answer; also a Ghostty desktop notification, unless that window is already in front of you |
+| Green check in a circle | Finished, and you have not looked yet; also a desktop notification with the first line of Claude's reply, unless that session is already in front of you |
+| Grey moon | Idle: you have looked, or no prompt yet. A window with no mark is not running Claude |
+
+Interrupting Claude with `esc` leaves the working mark until the next prompt,
+since Claude Code runs no hook for an interrupt. A turn that ends on an API
+error is marked finished, with a ⚠️ desktop notification showing the error.
+
+The icons come from the Nerd Font Ghostty uses. The right of the status bar
+counts the questions and finished windows in your other sessions, which `cmd+i`
+jumps to.
 
 Claude Code calls it from its hooks, which `install.sh` adds to
 `~/.claude/settings.json`, leaving any other hooks there alone.
