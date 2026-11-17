@@ -5,6 +5,9 @@
 # ctrl-x closes the highlighted window. Windows are picked by tmux window id
 # (@3): their numbers shift as windows close
 
+# shellcheck source-path=SCRIPTDIR
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+
 if [ "$1" = kill ]; then
   name=$(tmux display -p -t "$2" '#{session_name}:#{window_index}') || exit 0
   # Closing a Claude window that is working, asking or holding an unread
@@ -45,20 +48,20 @@ if [ "$1" = list ]; then
   branches=$(cat "$2" 2>/dev/null)
   while IFS=$'\t' read -r _ _ _ dir _; do
     case $'\n'$branches$'\n' in *$'\n'"$dir"$'\t'*) continue ;; esac
-    line="$dir"$'\t'$(git -C "$dir" branch --show-current 2>/dev/null)
+    line="$dir"$'\t'$(git -C "$dir" branch --show-current 2>/dev/null)$'\t'$(tilde "$dir")
     branches+=$'\n'$line
     [ -z "$2" ] || printf '%s\n' "$line" >>"$2"
   done <<<"$rows"
   # Marks and their colours as tmux.conf defines them, one "state icon #rrggbb" per line
   marks=$(tmux display -p "$(printf 'ask #{@mark_ask} #{@mark_ask_fg}\ndone #{@mark_done} #{@mark_done_fg}\nrunning #{@mark_running} #{@mark_running_fg}\nidle #{@mark_idle} #{@mark_idle_fg}')")
-  BRANCHES=$branches MARKS=$marks awk -F'\t' -v home="$HOME" '
+  BRANCHES=$branches MARKS=$marks awk -F'\t' '
     function rgb(hex) {
       return sprintf("\033[38;2;%d;%d;%dm", hexbyte(substr(hex, 2, 2)), hexbyte(substr(hex, 4, 2)), hexbyte(substr(hex, 6, 2)))
     }
     function hexbyte(h) { return index("0123456789abcdef", tolower(substr(h, 1, 1))) * 16 + index("0123456789abcdef", tolower(substr(h, 2, 1))) - 17 }
     BEGIN {
       n = split(ENVIRON["BRANCHES"], lines, "\n")
-      for (i = 1; i <= n; i++) { split(lines[i], f, "\t"); branch[f[1]] = f[2] }
+      for (i = 1; i <= n; i++) { split(lines[i], f, "\t"); branch[f[1]] = f[2]; shown[f[1]] = f[3] }
       n = split(ENVIRON["MARKS"], lines, "\n")
       for (i = 1; i <= n; i++) { split(lines[i], f, " "); mark[f[1]] = rgb(f[3]) f[2] }
       dim = "\033[38;2;84;92;126m"; reset = "\033[0m"
@@ -66,10 +69,8 @@ if [ "$1" = list ]; then
     {
       id = $1; target = $2; state = $3; dir = $4; title = $5
       icon = state in mark ? mark[state] : " "
-      shown = dir
-      if (dir == home || index(dir, home "/") == 1) shown = "~" substr(dir, length(home) + 1)
       extra = branch[dir] == "" ? "" : "  ·  " branch[dir]
-      printf "%s\t %s%s  \033[1m%s%s\n    %s%s  ·  %s%s%s%c", id, icon, reset, title, reset, dim, target, shown, extra, reset, 0
+      printf "%s\t %s%s  \033[1m%s%s\n    %s%s  ·  %s%s%s%c", id, icon, reset, title, reset, dim, target, shown[dir], extra, reset, 0
     }' <<<"$rows"
   exit 0
 fi

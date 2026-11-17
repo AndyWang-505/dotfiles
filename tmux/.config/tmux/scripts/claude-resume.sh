@@ -7,7 +7,9 @@
 # opens as a new window in the session it was in, which is created if missing.
 # Prints nothing, since tmux would show any output in a pane.
 
-dir=${XDG_STATE_HOME:-$HOME/.local/state}/tmux/claude-sessions
+# shellcheck source-path=SCRIPTDIR
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+dir=$state_dir/claude-sessions
 # The server has no session yet, so the socket comes from $TMUX
 socket=$(basename "${TMUX%%,*}")
 
@@ -30,12 +32,9 @@ for file in "$dir/$socket"-*.tsv; do
 done
 [ -n "$list" ] || exit 0
 
-# Claude Code keeps each directory's conversations under its path with every
-# character other than a letter or digit turned into "-". A conversation that
-# never got a message has no file there, and `claude --resume` would exit at once
-transcript() {
-  printf '%s/.claude/projects/%s/%s.jsonl' "$HOME" "$(printf '%s' "$1" | sed 's/[^A-Za-z0-9]/-/g')" "$2"
-}
+# A conversation that never got a message has no transcript, and
+# `claude --resume` would exit at once
+transcript() { printf '%s/%s.jsonl' "$(claude_project_dir "$1")" "$2"; }
 
 running=$(tmux list-panes -a -F '#{@claude_session}')
 while IFS=$'\t' read -r session cwd name; do

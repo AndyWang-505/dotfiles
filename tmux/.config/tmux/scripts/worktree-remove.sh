@@ -23,13 +23,8 @@ refuse() {
   exit 0
 }
 
-# ${var/#$HOME/~} would print "\~" inside quotes in bash 3.2
-tilde() {
-  case $1 in
-  "$HOME" | "$HOME"/*) printf '~%s' "${1#"$HOME"}" ;;
-  *) printf '%s' "$1" ;;
-  esac
-}
+# shellcheck source-path=SCRIPTDIR
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 root=$(git -C "$2" rev-parse --show-toplevel 2>/dev/null) || refuse "$(tilde "$2") is not in a git repository"
 shown=$(tilde "$root")

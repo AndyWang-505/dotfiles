@@ -60,7 +60,8 @@ Claude Code session is doing, as listed in the [README](../README.md#claude-code
 
 The mark belongs to the window, so each window runs one Claude Code session; a
 second one in another pane of the same window would overwrite it. Claude Code's
-hooks and tmux move it as follows, and `tests/tmux.sh` checks each row:
+hooks and tmux move it as follows. The rules are `next_mark` in
+`scripts/claude-marks.sh`, and `tests/tmux.sh` checks each row against it:
 
 | When | Mark before | Mark after |
 |------|-------------|------------|
