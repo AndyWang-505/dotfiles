@@ -9,8 +9,12 @@
 # `claude-wait.sh snapshot [window id]` only rewrites that list, leaving the
 # window out; tmux.conf's hooks and window-picker.sh use it.
 
-state=${XDG_STATE_HOME:-$HOME/.local/state}/tmux
-sessions=$state/claude-sessions
+here=$(dirname "${BASH_SOURCE[0]}")
+# shellcheck source-path=SCRIPTDIR
+. "$here/lib.sh"
+# shellcheck source-path=SCRIPTDIR
+. "$here/claude-marks.sh"
+sessions=$state_dir/claude-sessions
 
 # Records the conversation a pane runs and the directory it started in, which
 # is where Claude files it. Fails when the pane already had it
@@ -61,6 +65,28 @@ notify() {
   [ -z "$client_tty" ] || printf '\033]777;notify;%s;%s\a' "$title" "$body" >"$client_tty"
 }
 
+# Puts next_mark's answer on the window. Fails when the mark stays as it is
+apply_mark() {
+  local result new_mark new_asker
+  result=$(next_mark "$1" "$type" "$mark" "$asker" "$agent" "$on_screen")
+  [ -n "$result" ] || return 1
+  read -r new_mark new_asker <<<"$result"
+  if [ "$new_mark" = - ]; then
+    tmux set -wu -t "$TMUX_PANE" @claude_wait \; set -wu -t "$TMUX_PANE" @claude_asker
+  elif [ "$new_asker" = - ]; then
+    tmux set -w -t "$TMUX_PANE" @claude_wait "$new_mark" \; set -wu -t "$TMUX_PANE" @claude_asker
+  else
+    tmux set -w -t "$TMUX_PANE" @claude_wait "$new_mark" \; set -w -t "$TMUX_PANE" @claude_asker "$new_asker"
+  fi
+}
+
+# A notification type Claude Code added since, noted once for review
+note_new_type() {
+  mkdir -p "$state_dir" &&
+    { grep -qxF "$1" "$state_dir/new-notification-types" 2>/dev/null ||
+      echo "$1" >>"$state_dir/new-notification-types"; }
+}
+
 if [ "$1" = snapshot ]; then
   snapshot "$2"
   exit 0
@@ -70,70 +96,34 @@ input=$(cat)
 # agent is set on a subagent's hooks and empty for the main conversation
 IFS=$'\x1f' read -r session cwd agent type reason < <(
   jq -r '[.session_id, .cwd, .agent_id, .notification_type, .reason] | map(. // "") | join("\u001f")' <<<"$input" 2>/dev/null
-)
-# The window's mark and, while it is a question, the agent that asked
-IFS=/ read -r mark asker < <(tmux display -p -t "$TMUX_PANE" '#{@claude_wait}/#{@claude_asker}')
+) || log_error "$1: unreadable hook input"
+# The window's mark, the agent that asked while it is a question, and whether
+# the window is in front of an attached client
+IFS=/ read -r mark asker on_screen < <(
+  tmux display -p -t "$TMUX_PANE" '#{@claude_wait}/#{@claude_asker}/#{&&:#{window_active},#{session_attached}}'
+) || log_error "$1: cannot read window $TMUX_PANE"
+
 changed=
 if [ "$1" = clear ] || remember; then
   changed=1
 fi
 
-case "$1" in
-ask)
-  # Questions are what waits on you; a permission prompt is one even from a
-  # background agent after the turn ended. Claude's reminder after sitting idle
-  # (idle_prompt, or no type from an older Claude Code) is not one once the
-  # turn has finished. Other notifications leave the mark alone
-  case "$type/$mark" in
-  permission_prompt/* | elicitation_dialog/* | elicitation_url_dialog/* | agent_needs_input/*) question=1 ;;
-  /done | /idle | idle_prompt/done | idle_prompt/idle) question= ;;
-  /* | idle_prompt/*) question=1 ;;
-  auth_success/* | auth_storage_failure/* | agent_completed/* | elicitation_complete/* | elicitation_response/* | quota_*/* | plugin_notification/*) question= ;;
-  *)
-    # A type Claude Code added since: noted once, so a missed question shows up
-    question=
-    mkdir -p "$state"
-    grep -qxF "$type" "$state/new-notification-types" 2>/dev/null || echo "$type" >>"$state/new-notification-types"
-    ;;
+[ "$1" = ask ] && [ "$(notification_kind "$type")" = unknown ] && note_new_type "$type"
+if apply_mark "$1"; then
+  case $1 in
+  ask) notify ask ;;
+  done | failed) notify "$1" ;;
   esac
-  if [ -n "$question" ]; then
-    tmux set -w -t "$TMUX_PANE" @claude_wait ask \; set -w -t "$TMUX_PANE" @claude_asker "$agent"
-    notify ask
-  fi
-  ;;
-run)
-  # The main conversation's steps mean it is working. A subagent's do not, so
-  # a background agent after the turn ended keeps the window finished; but the
-  # agent that asked a question answers it with its next step
-  if [ -z "$agent" ] || [ "$mark/$asker" = "ask/$agent" ]; then
-    tmux set -w -t "$TMUX_PANE" @claude_wait running
-  fi
-  ;;
-idle)
-  tmux set -w -t "$TMUX_PANE" @claude_wait idle
-  ;;
-done | failed)
-  # A subagent's question still waits after the main turn ends. A finished or
-  # failed turn is marked unseen unless its window is on screen
-  if [ "$mark" != ask ] || [ -z "$asker" ]; then
-    if [ "$(tmux display -p -t "$TMUX_PANE" '#{&&:#{window_active},#{session_attached}}')" = 1 ]; then
-      tmux set -w -t "$TMUX_PANE" @claude_wait idle
-    else
-      tmux set -w -t "$TMUX_PANE" @claude_wait "done"
-    fi
-    notify "$1"
-  fi
-  ;;
-clear)
-  tmux set -wu -t "$TMUX_PANE" @claude_wait \; set -wu -t "$TMUX_PANE" @claude_asker
-  # Only a conversation you ended leaves the resume list; one stopped by a
-  # shutdown comes back
+fi
+
+# Only a conversation you ended leaves the resume list; one stopped by a
+# shutdown comes back
+if [ "$1" = clear ]; then
   case $reason in
   prompt_input_exit | clear | logout)
     tmux set -pu -t "$TMUX_PANE" @claude_session \; set -pu -t "$TMUX_PANE" @claude_dir
     ;;
   esac
-  ;;
-esac
+fi
 [ -z "$changed" ] || snapshot
 exit 0

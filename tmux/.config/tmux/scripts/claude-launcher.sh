@@ -10,14 +10,11 @@
 # ctrl-x removes a worktree (worktree-remove.sh). Worktrees show their PR's
 # state once GitHub answers, so the list opens without waiting for it.
 
-projects="$HOME/.claude/projects"
-
-# Claude Code keeps each directory's sessions under its path with every
-# character other than a letter or digit turned into "-"
-history_dir() { printf '%s/%s' "$projects" "$(printf '%s' "$1" | sed 's/[^A-Za-z0-9]/-/g')"; }
+# shellcheck source-path=SCRIPTDIR
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 last_session() {
-  find "$(history_dir "$1")" -maxdepth 1 -name '*.jsonl' -exec stat -f '%m' {} + 2>/dev/null | sort -n | tail -1
+  find "$(claude_project_dir "$1")" -maxdepth 1 -name '*.jsonl' -exec stat -f '%m' {} + 2>/dev/null | sort -n | tail -1
 }
 
 claude_dirs() {
@@ -58,14 +55,13 @@ list() {
   {
     [ "$1" = pr ] && pr_states | sed 's/^/pr	/'
     candidates
-  } | awk -F'\t' -v home="$HOME" '
+  } | awk -F'\t' '
     $1 == "pr" { if ($3 != "") state[$2] = tolower($3); next }
     seen[$2]++ { next }
-    {
-      shown = $2; sub("^" home, "~", shown)
-      pr = ($1 == "worktree" && $3 in state) ? "  · PR " state[$3] : ""
-      printf "%s\t%-9s %s%s\n", $2, $1, shown, pr
-    }'
+    { print $2 "\t" $1 "\t" (($1 == "worktree" && $3 in state) ? "  · PR " state[$3] : "") }' |
+    while IFS=$'\t' read -r dir tag pr; do
+      printf '%s\t%-9s %s%s\n' "$dir" "$tag" "$(tilde "$dir")" "$pr"
+    done
 }
 
 if [ "$1" = list ]; then

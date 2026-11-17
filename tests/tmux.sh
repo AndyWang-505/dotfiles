@@ -16,6 +16,11 @@ export HOME=$work/home XDG_STATE_HOME=$work/state
 mkdir -p "$HOME/.config" "$work/bin"
 ln -s "$repo/tmux/.config/tmux" "$HOME/.config/tmux"
 export PATH=$work/bin:$PATH
+# The scripts' shared helpers and mark rules, tested directly below
+# shellcheck source-path=SCRIPTDIR/../tmux/.config/tmux/scripts
+. "$scripts/lib.sh"
+# shellcheck source-path=SCRIPTDIR/../tmux/.config/tmux/scripts
+. "$scripts/claude-marks.sh"
 
 cleanup() {
   tmux -L "$socket" kill-server 2>/dev/null
@@ -61,7 +66,38 @@ hook() { # pane event json
 mark() { tm show -wv -t "$1" @claude_wait 2>/dev/null; }
 resume_list() { cat "$XDG_STATE_HOME"/tmux/claude-sessions/*.tsv 2>/dev/null | tr '\t' ' ' | sort | tr '\n' '|'; }
 
+echo '# Mark rules (next_mark, one row per case in docs/claude-code-in-tmux.md)'
+rule() { # name event type mark asker agent on_screen expected
+  check "$1" "$8" "$(next_mark "$2" "$3" "$4" "$5" "$6" "$7")"
+}
+rule 'a conversation starts' idle '' running '' '' 0 'idle -'
+rule 'a prompt or tool call works' run '' idle '' '' 0 'running -'
+rule 'the subagent that asked answers' run '' ask a1 a1 0 'running a1'
+rule "another subagent's step leaves a question" run '' ask '' a1 0 ''
+rule 'a background step leaves a finished turn' run '' 'done' '' a2 0 ''
+rule 'a permission prompt asks, even after the turn' ask permission_prompt 'done' '' a2 0 'ask a2'
+rule 'an agent waiting on input asks' ask agent_needs_input idle '' '' 0 'ask -'
+rule 'a reminder while working asks' ask idle_prompt running '' '' 0 'ask -'
+rule 'an untyped reminder while asking asks' ask '' ask '' '' 0 'ask -'
+rule 'a reminder after a finished turn does not' ask idle_prompt 'done' '' '' 0 ''
+rule 'an untyped reminder when idle does not' ask '' idle '' '' 0 ''
+rule 'a known other notification leaves it' ask agent_completed running '' '' 0 ''
+rule 'an unknown notification leaves it' ask brand_new_type running '' '' 0 ''
+check 'and is recognised as unknown' unknown "$(notification_kind brand_new_type)"
+rule "a turn ending keeps a subagent's question" 'done' '' ask a1 '' 0 ''
+rule 'a turn ending is finished' 'done' '' running '' '' 0 'done -'
+rule 'a failed turn is finished too' failed '' running '' '' 0 'done -'
+rule 'a turn ending on screen is seen' 'done' '' running '' '' 1 'idle -'
+rule 'an ended conversation has no mark' clear '' running '' '' 0 '- -'
+
+echo '# Shared helpers'
+# shellcheck disable=SC2088 # the literal ~ is what tilde prints
+check 'the home directory is shown as ~' '~/code' "$(tilde "$HOME/code")"
+check 'a sibling of home is not' "${HOME}2/code" "$(tilde "${HOME}2/code")"
+check "Claude's project directory for a path" "$HOME/.claude/projects/-a-b-c-d" "$(claude_project_dir /a/b.c_d)"
+
 echo '# Claude marks'
+
 start
 pane=$(tm display -p -t main:0 '#{pane_id}')
 step() { # json event expected name
@@ -93,6 +129,8 @@ hook "$pane" run '{"session_id":"s"}'
 hook "$pane" 'done' '{"session_id":"s"}'
 tm new-window -t main \; select-window -t main:0
 check 'visiting a finished window marks it seen' idle "$(mark main:0)"
+hook "$pane" run 'not json'
+check 'unreadable hook input is logged' 1 "$(grep -c 'run: unreadable hook input' "$XDG_STATE_HOME/tmux/claude-hooks.log" 2>/dev/null)"
 
 echo '# Jumping to the window that waits (prefix a)'
 start -n w0 \; new-window -t main -n w1 \; new-window -t main -n w2 \; new-session -d -s other -n o0 \; select-window -t main:0
@@ -145,8 +183,8 @@ start \; new-window -t main \; new-session -d -s work
 for t in main:0 main:1 work:0; do
   id=conv-${t/:/-}
   mkdir -p "$work/proj"
-  mkdir -p "$HOME/.claude/projects/$(printf '%s' "$work/proj" | sed 's/[^A-Za-z0-9]/-/g')"
-  touch "$HOME/.claude/projects/$(printf '%s' "$work/proj" | sed 's/[^A-Za-z0-9]/-/g')/$id.jsonl"
+  mkdir -p "$(claude_project_dir "$work/proj")"
+  touch "$(claude_project_dir "$work/proj")/$id.jsonl"
   hook "$(tm display -p -t $t '#{pane_id}')" idle "{\"session_id\":\"$id\",\"cwd\":\"$work/proj\"}"
 done
 saved=$(cat "$XDG_STATE_HOME"/tmux/claude-sessions/*.tsv)
