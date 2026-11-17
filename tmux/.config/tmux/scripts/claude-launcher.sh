@@ -6,7 +6,9 @@
 #   2. every worktree of the current repo
 #   3. directories Claude Code has run in, most recent session first; those
 #      whose sessions Claude Code has already cleaned up come last
-# enter starts a new conversation, ctrl-o continues the directory's last one.
+# enter starts a new conversation, ctrl-o continues the directory's last one,
+# ctrl-x removes a worktree (worktree-remove.sh). Worktrees show their PR's
+# state once GitHub answers, so the list opens without waiting for it.
 
 projects="$HOME/.claude/projects"
 
@@ -32,16 +34,47 @@ claude_dirs() {
 
 candidates() {
   printf 'current\t%s\n' "$PWD"
-  git worktree list --porcelain 2>/dev/null | sed -n 's/^worktree /worktree\t/p'
+  git worktree list --porcelain 2>/dev/null |
+    awk '/^worktree /{ dir = substr($0, 10); branch = "" }
+      /^branch /{ branch = substr($0, 19) }
+      /^$/{ printf "worktree\t%s\t%s\n", dir, branch }'
   claude_dirs
 }
 
-# The first listing of a directory wins, so the current one keeps its tag
+# Branch and state of the repo's PRs, newest first
+pr_states() {
+  gh pr list --state all --limit 100 --json headRefName,state \
+    -q '.[] | "\(.headRefName)\t\(.state)"' 2>/dev/null
+}
+
+# `list pr` adds each worktree's PR state. The first listing of a directory
+# wins, so the current one keeps its tag
+list() {
+  {
+    [ "$1" = pr ] && pr_states | sed 's/^/pr	/'
+    candidates
+  } | awk -F'\t' -v home="$HOME" '
+    $1 == "pr" { if (!($2 in state)) state[$2] = tolower($3); next }
+    seen[$2]++ { next }
+    {
+      shown = $2; sub("^" home, "~", shown)
+      pr = ($1 == "worktree" && $3 in state) ? "  · PR " state[$3] : ""
+      printf "%s\t%-9s %s%s\n", $2, $1, shown, pr
+    }'
+}
+
+if [ "$1" = list ]; then
+  list "$2"
+  exit 0
+fi
+
+self=${BASH_SOURCE[0]}
 choice=$(
-  candidates | awk -F'\t' '!seen[$2]++' |
-    awk -F'\t' -v home="$HOME" '{ shown = $2; sub("^" home, "~", shown); printf "%s\t%-9s %s\n", $2, $1, shown }' |
+  list |
     fzf --reverse --delimiter '\t' --with-nth 2 --expect ctrl-o \
-      --prompt 'claude> ' --header 'enter: new conversation  ctrl-o: continue the last one'
+      --bind "start:reload(\"$self\" list pr)" \
+      --bind "ctrl-x:execute(\"$(dirname "$self")/worktree-remove.sh\" ask {1})+reload(\"$self\" list pr)" \
+      --prompt 'claude> ' --header 'enter: new conversation  ctrl-o: continue the last one  ctrl-x: remove worktree'
 ) || exit 0
 
 key=$(head -1 <<<"$choice")
