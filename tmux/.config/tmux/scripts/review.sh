@@ -8,6 +8,9 @@
 # whichever of the newest release/* and the default branch HEAD forked from most
 # recently. Remote branches come from upstream in a fork and origin otherwise.
 
+# shellcheck source-path=SCRIPTDIR
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+
 die() {
   echo "$*"
   read -rsn1 -p 'Press any key to close'
@@ -57,7 +60,7 @@ candidates() {
 }
 
 choose() {
-  awk -v home="$HOME" '{ shown = $0; sub("^" home, "~", shown); print $0 "\t" shown }' |
+  while IFS= read -r dir; do printf '%s\t%s\n' "$dir" "$(tilde "$dir")"; done |
     fzf --reverse --delimiter '\t' --with-nth 2 --prompt 'review> ' --bind "load:pos($1)" \
       --header 'enter: review  esc: close  (quitting nvim comes back here)' |
     cut -f1

@@ -64,7 +64,7 @@ hook() { # pane event json
   TMUX_PANE=$1 "$scripts/claude-wait.sh" "$2" <<<"$3"
 }
 mark() { tm show -wv -t "$1" @claude_wait 2>/dev/null; }
-resume_list() { cat "$XDG_STATE_HOME"/tmux/claude-sessions/*.tsv 2>/dev/null | cut -f1-3 | tr '\t' ' ' | sort | tr '\n' '|'; }
+resume_list() { cat "$sessions_dir"/*.tsv 2>/dev/null | cut -f1-3 | tr '\t' ' ' | sort | tr '\n' '|'; }
 
 echo '# Mark rules (next_mark, one row per case in docs/claude-code-in-tmux.md)'
 rule() { # name event type mark asker agent on_screen expected [busy]
@@ -190,13 +190,13 @@ for w in 0 1 2; do
 done
 check 'running conversations are listed' 'S0 /tmp/dir 0 main|S1 /tmp/dir 1 main|S2 /tmp/dir 2 main|' "$(resume_list)"
 tm rename-session -t main api
-eventually grep -q api "$XDG_STATE_HOME"/tmux/claude-sessions/*.tsv
+eventually grep -q api "$sessions_dir"/*.tsv
 check 'a renamed session is followed' 'S0 /tmp/dir 0 api|S1 /tmp/dir 1 api|S2 /tmp/dir 2 api|' "$(resume_list)"
 tm move-window -s api:2 -t other:
-eventually grep -q other "$XDG_STATE_HOME"/tmux/claude-sessions/*.tsv
+eventually grep -q other "$sessions_dir"/*.tsv
 check 'a window moved to another session is followed' 'S0 /tmp/dir 0 api|S1 /tmp/dir 1 api|S2 /tmp/dir 2 other|' "$(resume_list)"
 tm kill-window -t api:1
-eventually sh -c "! grep -q S1 '$XDG_STATE_HOME'/tmux/claude-sessions/*.tsv"
+eventually sh -c "! grep -q S1 '$sessions_dir'/*.tsv"
 check 'a killed window leaves' 'S0 /tmp/dir 0 api|S2 /tmp/dir 2 other|' "$(resume_list)"
 hook "$(tm display -p -t api:0 '#{pane_id}')" clear '{"session_id":"S0","reason":"other"}'
 check 'a conversation stopped by a shutdown stays' 'S0 /tmp/dir 0 api|S2 /tmp/dir 2 other|' "$(resume_list)"
@@ -219,13 +219,13 @@ for t in main:0 main:1 work:0; do
   touch "$(claude_project_dir "$work/proj")/$id.jsonl"
   hook "$(tm display -p -t $t '#{pane_id}')" idle "{\"session_id\":\"$id\",\"cwd\":\"$work/proj\"}"
 done
-saved=$(cat "$XDG_STATE_HOME"/tmux/claude-sessions/*.tsv)
+saved=$(cat "$sessions_dir"/*.tsv)
 tm kill-server
-mkdir -p "$XDG_STATE_HOME/tmux/claude-sessions"
+mkdir -p "$sessions_dir"
 tmux -L "$socket-b" -f "$HOME/.config/tmux/tmux.conf" new -d -s main 2>/dev/null
 check 'another tmux server leaves the list alone' 0 "$(tmux -L "$socket-b" list-windows -a -F '#{pane_start_command}' | grep -c 'claude --resume')"
 tmux -L "$socket-b" kill-server
-printf '%s\n' "$saved" >"$XDG_STATE_HOME/tmux/claude-sessions/$socket-1-999999.tsv"
+printf '%s\n' "$saved" >"$sessions_dir/$socket-1-999999.tsv"
 tm -f "$HOME/.config/tmux/tmux.conf" new -A -d -s main 2>/dev/null
 check 'each conversation reopens in its session' 'main claude --resume conv-main-0|main claude --resume conv-main-1|work claude --resume conv-work-0|' \
   "$(tm list-windows -a -F '#{session_name} #{pane_start_command}' | grep 'claude --resume' | sort | tr '\n' '|')"
@@ -235,7 +235,7 @@ tm kill-server
 tmux -L "$socket-b" new -d
 reused=$(tmux -L "$socket-b" display -p '#{pid}')
 mkdir -p "$work/elsewhere" && touch "$work/elsewhere/conv-far.jsonl"
-printf 'conv-far\t%s\tmain\t%s\n' "$work/proj" "$work/elsewhere/conv-far.jsonl" >"$XDG_STATE_HOME/tmux/claude-sessions/$socket-1-$reused.tsv"
+printf 'conv-far\t%s\tmain\t%s\n' "$work/proj" "$work/elsewhere/conv-far.jsonl" >"$sessions_dir/$socket-1-$reused.tsv"
 tm -f "$HOME/.config/tmux/tmux.conf" new -A -d -s main 2>/dev/null
 check 'a list whose pid another tmux reuses reopens, from its recorded transcript' 'main claude --resume conv-far|' \
   "$(tm list-windows -a -F '#{session_name} #{pane_start_command}' | grep 'claude --resume' | sort | tr '\n' '|')"

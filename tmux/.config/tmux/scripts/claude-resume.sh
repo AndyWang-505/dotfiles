@@ -9,18 +9,17 @@
 
 # shellcheck source-path=SCRIPTDIR
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
-dir=$state_dir/claude-sessions
 # The server has no session yet, so the socket comes from $TMUX
 socket=$(basename "${TMUX%%,*}")
 
 # Only one server runs on a socket, so every list but this server's own is from
 # one that is gone. Checking for a live pid instead would skip a list whose pid
 # a later process reused after a reboot
-current=$(tmux display -p '#{b:socket_path}-#{start_time}-#{pid}')
+current=$(server_list_name)
 
 list=
 stale=()
-for file in "$dir/$socket"-*.tsv; do
+for file in "$sessions_dir/$socket"-*.tsv; do
   [ -e "$file" ] || continue
   base=$(basename "$file" .tsv)
   # A socket named like this one plus "-something" matches the glob too
@@ -33,12 +32,11 @@ done
 
 # A conversation that never got a message has no transcript, and
 # `claude --resume` would exit at once. Lists record the transcript Claude Code
-# reported; older ones do not, so its place is worked out from the directory
-transcript() { printf '%s/%s.jsonl' "$(claude_project_dir "$1")" "$2"; }
-
+# reported, - when it reported none; older lists have no such field
 running=$(tmux list-panes -a -F '#{@claude_session}')
 while IFS=$'\t' read -r session cwd name file; do
-  [ -n "$session" ] && [ -d "$cwd" ] && [ -f "${file:-$(transcript "$cwd" "$session")}" ] || continue
+  [ -n "$file" ] && [ "$file" != - ] || file=$(claude_transcript "$session" "$cwd")
+  [ -n "$session" ] && [ -d "$cwd" ] && [ -f "$file" ] || continue
   grep -qxF "$session" <<<"$running" && continue
   if tmux has-session -t "=$name" 2>/dev/null; then
     tmux new-window -d -t "=$name:" -c "$cwd" claude --resume "$session"

@@ -15,7 +15,6 @@ here=$(dirname "${BASH_SOURCE[0]}")
 . "$here/lib.sh"
 # shellcheck source-path=SCRIPTDIR
 . "$here/claude-marks.sh"
-sessions=$state_dir/claude-sessions
 
 # Records the conversation a pane runs, the directory to reopen it in and its
 # transcript. A new conversation in the pane replaces all three. Fails when the
@@ -33,11 +32,11 @@ remember() {
 # panes can run at once
 snapshot() {
   local server panes
-  server=$(tmux display -p '#{b:socket_path}-#{start_time}-#{pid}') || return
-  panes=$(tmux list-panes -a -F '#{@claude_session}	#{@claude_dir}	#{session_name}	#{window_id}	#{@claude_transcript}') || return
-  mkdir -p "$sessions" &&
-    awk -F'\t' -v except="$1" '$1 != "" && $4 != except && !seen[$1]++ { print $1 "\t" $2 "\t" $3 "\t" $5 }' <<<"$panes" >"$sessions/.$server.$$" &&
-    mv "$sessions/.$server.$$" "$sessions/$server.tsv"
+  server=$(server_list_name) || return
+  panes=$(tmux list-panes -a -F '#{@claude_session}	#{@claude_dir}	#{session_name}	#{window_id}	#{?@claude_transcript,#{@claude_transcript},-}') || return
+  mkdir -p "$sessions_dir" &&
+    awk -F'\t' -v except="$1" '$1 != "" && $4 != except && !seen[$1]++ { print $1 "\t" $2 "\t" $3 "\t" $5 }' <<<"$panes" >"$sessions_dir/.$server.$$" &&
+    mv "$sessions_dir/.$server.$$" "$sessions_dir/$server.tsv"
 }
 
 # Desktop notification through the most recently used Ghostty, unless a
@@ -119,7 +118,7 @@ IFS=/ read -r mark asker on_screen < <(
 # Whether a turn ends with subagents still running in the background
 busy=
 if [ "$1" = 'done' ] && [ -n "$transcript" ] &&
-  [ -n "$("$here/claude-agents.sh" "${transcript%.jsonl}/subagents" | head -1)" ]; then
+  [ -n "$("$here/claude-agents.sh" "$(claude_agents_dir "$session" "$cwd" "$transcript")" | head -1)" ]; then
   busy=1
 fi
 
