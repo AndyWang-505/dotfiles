@@ -21,11 +21,16 @@ claude_project_dir() {
   printf '%s/.claude/projects/%s' "$HOME" "$(printf '%s' "$1" | sed 's/[^A-Za-z0-9]/-/g')"
 }
 
-# Where Claude Code keeps the subagents of one conversation, given the
-# conversation and the directory it started in
-#   claude_agents_dir <session id> <directory>
+# Where Claude Code keeps the subagents of one conversation: next to its
+# transcript, which the pane records; or else worked out from the conversation
+# and the directory it started in
+#   claude_agents_dir <session id> <directory> [transcript]
 claude_agents_dir() {
-  printf '%s/%s/subagents' "$(claude_project_dir "$2")" "$1"
+  if [ -n "${3:-}" ]; then
+    printf '%s/subagents' "${3%.jsonl}"
+  else
+    printf '%s/%s/subagents' "$(claude_project_dir "$2")" "$1"
+  fi
 }
 
 # Notes a failure in the hook error log. The hooks never stop Claude Code
