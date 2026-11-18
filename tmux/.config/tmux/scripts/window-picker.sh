@@ -49,10 +49,11 @@ fi
 # repo is the worktree it works in; otherwise, or once that worktree is
 # removed, as autofix does when it is done, the pane's own
 ranked() {
-  tmux list-windows -a -F '#{E:@claude_rank}	#{window_id}	#{session_name}:#{window_index}	#{?@claude_wait,#{@claude_wait},-}	#{@review_dir}	#{pane_current_path}	#{E:@win_title}' |
+  tmux list-windows -a -F '#{E:@claude_rank}	#{window_id}	#{session_name}:#{window_index}	#{?@claude_wait,#{@claude_wait},-}	#{?@review_dir,#{@review_dir},-}	#{pane_current_path}	#{E:@win_title}' |
     sort -s -n -k1,1 | cut -f2- |
+    # No field may be empty: read would merge the tabs around it and shift the rest
     while IFS=$'\t' read -r id target mark edited own title; do
-      [ -n "$edited" ] && [ -d "$edited" ] || edited=$own
+      [ "$edited" != - ] && [ -d "$edited" ] || edited=$own
       printf '%s\t%s\t%s\t%s\t%s\n' "$id" "$target" "$mark" "$edited" "$title"
     done
 }

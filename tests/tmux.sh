@@ -220,6 +220,8 @@ listed=$("$scripts/window-picker.sh" list | tr '\0' '\n' | sed $'s/\e\\[[0-9;]*m
 field() { grep -F "$1" <<<"$listed" | awk -v icon="$2 " '{ s = substr($0, index($0, icon) + length(icon)); sub(/   .*/, "", s); print s }'; }
 check 'questions first, then finished, then the rest' 'main:2|main:1|main:0|main:3|' \
   "$(sed -n 's/^ *\(main:[0-9]\).*/\1/p' <<<"$listed" | tr '\n' '|')"
+tm rename-window -t main:0 home
+check 'a window without edits keeps its title' 1 "$("$scripts/window-picker.sh" list | tr '\0' '\n' | sed $'s/\e\\[[0-9;]*m//g' | grep -c ' home$')"
 check 'items are keyed by window id' "$(tm display -p -t main:2 '#{window_id}')" "$(head -1 <<<"$listed" | cut -f1)"
 check 'the home directory is shortened' '~' "$(field main:0 '')"
 # A session started in the main repo that edits a worktree shows the worktree
