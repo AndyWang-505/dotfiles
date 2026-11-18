@@ -139,5 +139,6 @@ to work live in untracked files instead:
 | `~/.gitconfig` | GitHub over HTTPS, and an optional `includeIf` that points work repos at `work.gitconfig` |
 | `~/.config/git/work.gitconfig` | The email for work repos, if any |
 | `~/.config/fish/config-local.fish` | Credentials and env vars |
-| `nvim/.../lua/plugins/local/` | Editor config only some repos need |
+| `nvim/.../lua/plugins/local/` | Editor plugins only some repos need |
+| `nvim/.../lua/config/local.lua` | Editor settings and keymaps for this machine only |
 | `~/.claude/settings.json` | Claude Code settings; holds work context. `install.sh` only adds the tmux hooks to it |

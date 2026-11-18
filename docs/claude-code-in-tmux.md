@@ -50,8 +50,9 @@ is how to clear out worktrees whose PRs are done.
 ## Removing worktrees
 
 Both pickers' `ctrl-x` use `tmux/.config/tmux/scripts/worktree-remove.sh`. It
-only offers a worktree that loses nothing: no tmux pane is in it, nothing is
-uncommitted or untracked, HEAD's commit is on a local or remote branch (so a
+only offers a worktree that loses nothing: no tmux pane is in it and no other
+window's Claude has edited it, nothing is uncommitted or untracked (including
+edits in files marked skip-worktree or assume-unchanged), HEAD's commit is on a local or remote branch (so a
 detached HEAD loses nothing), and every ignored file, such as
 an `.env` copied in, is the same as the main worktree's copy. Only build output
 skips that check: `node_modules`, `dist`, `.nx`, `.next`, `.turbo`,

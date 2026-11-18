@@ -60,6 +60,8 @@ else
 # Optional second identity, for example for work repos, picked by the remote:
 # [includeIf "hasconfig:remote.*.url:https://github.com/<org>/**"]
 # 	path = ~/.config/git/work.gitconfig
+# [includeIf "hasconfig:remote.*.url:git@github.com:<org>/**"]
+# 	path = ~/.config/git/work.gitconfig
 EOF
 fi
 
@@ -121,7 +123,8 @@ claude_hooks=$(jq -n '
     hook("SessionEnd"; "claude-wait.sh"; " clear"; null)
   ]')
 
-[ -f "$CLAUDE_SETTINGS" ] || echo '{}' >"$CLAUDE_SETTINGS"
+# An empty file gives jq nothing to merge into, so it counts as missing
+[ -s "$CLAUDE_SETTINGS" ] || echo '{}' >"$CLAUDE_SETTINGS"
 settings_tmp=$(mktemp)
 if jq --argjson add "$claude_hooks" '
   .hooks //= {}

@@ -9,7 +9,8 @@ claude/.claude/*
 !claude/.claude/CLAUDE.md
 
 # stow folds a package's directory into a single symlink, so anything a plugin
-# manager writes under it lands inside this repo.
+# manager writes under it lands inside this repo. tmux no longer uses one, but
+# machines set up before keep its plugins/ directory.
 tmux/.config/tmux/plugins/
 fish/.config/fish/completions/
 fish/.config/fish/functions/

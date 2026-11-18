@@ -39,12 +39,21 @@ spell out its colours, so a new theme changes them too:
 Before a PR that touches `tmux/`, run `tests/tmux.sh`. It checks the scripts
 behind the [Claude Code workflow](claude-code-in-tmux.md) on its own tmux
 server with a scratch home, so it is safe to run any time. CI also runs it,
-shellcheck, stylua, a fish syntax check and a full `install.sh` on macOS.
+shellcheck, stylua, a fish syntax check and, when a PR changes a package's
+config, the Brewfile or the installer, a full `install.sh` on macOS.
 
 ## Changes
 
-Changes go in through PRs. This clone pushes branches to a fork (`origin`) and
-opens PRs against `upstream`. Once one merges:
+Changes go in through PRs. The author's clone pushes branches to a fork
+(`origin`) and opens PRs against `upstream`; a clone made by the README has
+only `origin`, so set the two up first:
+
+```sh
+git remote rename origin upstream
+git remote add origin https://github.com/<you>/dotfiles.git
+```
+
+Once a PR merges:
 
 ```sh
 git switch main && git pull upstream main
