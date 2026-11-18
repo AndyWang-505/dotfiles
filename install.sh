@@ -84,19 +84,6 @@ fi
 log "Stowing packages: ${PACKAGES[*]}"
 stow --dir="$DOTFILES_DIR" --target="$HOME" --restow "${PACKAGES[@]}"
 
-# ---------------------------------------------------------------------- tmux --
-# TPM has to exist before `prefix + I` does anything.
-TPM_DIR="$HOME/.config/tmux/plugins/tpm"
-if [ -d "$TPM_DIR" ]; then
-  skip "TPM already cloned"
-else
-  log "Cloning TPM"
-  try git clone --depth 1 https://github.com/tmux-plugins/tpm "$TPM_DIR"
-fi
-
-log "Installing tmux plugins"
-try "$TPM_DIR/bin/install_plugins"
-
 # -------------------------------------------------------------------- claude --
 # Not in the Brewfile: an npm-installed claude already owns
 # /opt/homebrew/bin/claude on some machines, and the cask would fail to link
