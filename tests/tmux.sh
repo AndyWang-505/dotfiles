@@ -133,6 +133,11 @@ echo '{"description":"bg"}' >"$conv/subagents/a.meta.json"
 step "{\"session_id\":\"s\",\"transcript_path\":\"$conv.jsonl\"}" 'done' running 'a turn ending while a subagent runs keeps working'
 echo '{"description":"bg","finished":true}' >"$conv/subagents/a.meta.json"
 step "{\"session_id\":\"s\",\"transcript_path\":\"$conv.jsonl\"}" 'done' 'done' 'the turn after it reports is finished'
+tm set -w -t main:0 @claude_label SD-1 \; set -w -t main:0 @review_dir /x \; set -w -t main:0 @review_dirs /x
+hook "$pane" idle '{"session_id":"s","source":"resume"}'
+check 'a resumed conversation keeps its task' 'SD-1|/x|/x' "$(tm display -p -t main:0 '#{@claude_label}|#{@review_dir}|#{@review_dirs}')"
+hook "$pane" idle '{"session_id":"s","source":"clear"}'
+check 'a cleared conversation forgets the last task' '||' "$(tm display -p -t main:0 '#{@claude_label}|#{@review_dir}|#{@review_dirs}')"
 step '{"session_id":"s","reason":"other"}' clear '' 'an ended conversation has no mark'
 hook "$pane" run '{"session_id":"s"}'
 hook "$pane" 'done' '{"session_id":"s"}'
@@ -211,7 +216,7 @@ echo '# Window picker list'
 start -n shell -c "$HOME" \; new-window -t main -n w1 \; new-window -t main -n w2 \; new-window -t main -n w3
 tm set -w -t main:1 @claude_wait 'done' \; set -w -t main:2 @claude_wait ask \; set -w -t main:3 @claude_wait running
 listed=$("$scripts/window-picker.sh" list | tr '\0' '\n' | sed $'s/\e\\[[0-9;]*m//g')
-# The field a window's line shows after an icon:  directory,  branch,  removed
+# The field a window's line shows after an icon:  directory,  branch
 field() { grep -F "$1" <<<"$listed" | awk -v icon="$2 " '{ s = substr($0, index($0, icon) + length(icon)); sub(/   .*/, "", s); print s }'; }
 check 'questions first, then finished, then the rest' 'main:2|main:1|main:0|main:3|' \
   "$(sed -n 's/^ *\(main:[0-9]\).*/\1/p' <<<"$listed" | tr '\n' '|')"
@@ -227,7 +232,7 @@ check 'a window shows the repo Claude last edited from it' '~/edited feature/edi
   "$(field main:1 '') $(field main:1 '')"
 rm -rf "$HOME/edited"
 listed=$("$scripts/window-picker.sh" list | tr '\0' '\n' | sed $'s/\e\\[[0-9;]*m//g')
-check 'a worktree removed since says so' removed "$(field main:1 '')"
+check 'a worktree removed since gives way to the pane directory' "$(tilde "$(tm display -p -t main:1 '#{pane_current_path}')")" "$(field main:1 '')"
 check 'a window without edits shows its own directory' '~' "$(field main:0 '')"
 # The subagents a Claude window runs: the list counts them, the preview names them
 agents=$(claude_agents_dir conv-a "$work/proj")

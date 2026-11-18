@@ -94,8 +94,8 @@ fi
 [ -n "$TMUX_PANE" ] || exit 0
 input=$(cat)
 # agent is set on a subagent's hooks and empty for the main conversation
-IFS=$'\x1f' read -r session cwd agent type reason transcript < <(
-  jq -r '[.session_id, .cwd, .agent_id, .notification_type, .reason, .transcript_path] | map(. // "") | join("\u001f")' <<<"$input" 2>/dev/null
+IFS=$'\x1f' read -r session cwd agent type reason transcript source < <(
+  jq -r '[.session_id, .cwd, .agent_id, .notification_type, .reason, .transcript_path, .source] | map(. // "") | join("\u001f")' <<<"$input" 2>/dev/null
 ) || log_error "$1: unreadable hook input"
 # The window's mark, the agent that asked while it is a question, and whether
 # the window is in front of an attached client
@@ -121,6 +121,16 @@ if apply_mark "$1"; then
   ask) notify ask ;;
   'done') [ -n "$busy" ] || notify 'done' ;;
   failed) notify failed ;;
+  esac
+fi
+
+# A new or cleared conversation is a new task: the last one's ticket label and
+# the repos it edited would otherwise stay on the window. A resumed one carries on
+if [ "$1" = idle ]; then
+  case $source in
+  startup | clear)
+    tmux set -wu -t "$TMUX_PANE" @claude_label \; set -wu -t "$TMUX_PANE" @review_dir \; set -wu -t "$TMUX_PANE" @review_dirs
+    ;;
   esac
 fi
 
