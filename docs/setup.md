@@ -32,8 +32,9 @@ PATH, so `brew`, `gh` and `nvim` are not found there.
 
 - **`gh auth login`**: git reaches GitHub over HTTPS rather than SSH, so a new
   machine can clone and push without an SSH key; this signs it in. It also lets
-  the review popup compare a branch with its PR's base; without it, the popup
-  compares with the newest `release/*` or the default branch.
+  the review popup compare a branch with its open PR's base; without it, the
+  popup compares with the newest `release/*` or the default branch, whichever
+  the branch forked from more recently.
 - **`claude`**: Claude Code signs in on its first run. Its tmux hooks are
   already in `~/.claude/settings.json`.
 - **The login shell**: zsh stays the login shell and gets its PATH from
