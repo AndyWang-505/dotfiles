@@ -19,14 +19,15 @@ notification_kind() {
 }
 
 # The mark after a hook, from the one before it.
-#   next_mark <event> <notification type> <mark> <asker> <agent> <on screen>
+#   next_mark <event> <notification type> <mark> <asker> <agent> <on screen> <busy>
 # event is the hook's argument: ask, run, idle, done, failed or clear. asker is
 # the agent that asked the open question and agent the one this hook came from,
 # both empty for the main conversation. on screen is 1 when the window is in
-# front of an attached client. Prints "<mark> <asker>", - standing for none, or
-# nothing when the mark stays as it is.
+# front of an attached client, and busy 1 when subagents still run in the
+# background. Prints "<mark> <asker>", - standing for none, or nothing when the
+# mark stays as it is.
 next_mark() {
-  local event=$1 type=$2 mark=$3 asker=$4 agent=$5 on_screen=$6
+  local event=$1 type=$2 mark=$3 asker=$4 agent=$5 on_screen=$6 busy=$7
   case $event in
   idle)
     echo "idle ${asker:--}"
@@ -50,7 +51,12 @@ next_mark() {
     # A subagent's question still waits after the main turn ends. A failed turn
     # takes the same mark: it ended and its error waits to be read
     [ "$mark" = ask ] && [ -n "$asker" ] && return
-    if [ "$on_screen" = 1 ]; then
+    # A turn that ends with subagents still running in the background is still
+    # working: Claude takes a turn again when each one reports, and the last of
+    # those turns finishes the window
+    if [ "$event" = 'done' ] && [ "$busy" = 1 ]; then
+      echo "running ${asker:--}"
+    elif [ "$on_screen" = 1 ]; then
       echo "idle ${asker:--}"
     else
       echo "done ${asker:--}"

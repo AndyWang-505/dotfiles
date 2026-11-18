@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Tests for the tmux scripts behind the Claude Code workflow: the window marks
 # Claude's hooks set, the resume list and reopening it after a restart, the
-# window picker's list, and removing worktrees. Each runs on its own tmux server
+# window picker's list and preview, and removing worktrees. Each runs on its own tmux server
 # with a scratch HOME, so your tmux, ~/.claude and repos are left alone.
 #   tests/tmux.sh
 set -u
@@ -67,8 +67,8 @@ mark() { tm show -wv -t "$1" @claude_wait 2>/dev/null; }
 resume_list() { cat "$XDG_STATE_HOME"/tmux/claude-sessions/*.tsv 2>/dev/null | tr '\t' ' ' | sort | tr '\n' '|'; }
 
 echo '# Mark rules (next_mark, one row per case in docs/claude-code-in-tmux.md)'
-rule() { # name event type mark asker agent on_screen expected
-  check "$1" "$8" "$(next_mark "$2" "$3" "$4" "$5" "$6" "$7")"
+rule() { # name event type mark asker agent on_screen expected [busy]
+  check "$1" "$8" "$(next_mark "$2" "$3" "$4" "$5" "$6" "$7" "${9:-}")"
 }
 rule 'a conversation starts' idle '' running '' '' 0 'idle -'
 rule 'a prompt or tool call works' run '' idle '' '' 0 'running -'
@@ -88,6 +88,10 @@ rule "a turn ending keeps a subagent's question" 'done' '' ask a1 '' 0 ''
 rule 'a turn ending is finished' 'done' '' running '' '' 0 'done -'
 rule 'a failed turn is finished too' failed '' running '' '' 0 'done -'
 rule 'a turn ending on screen is seen' 'done' '' running '' '' 1 'idle -'
+rule 'a turn ending with subagents running keeps working' 'done' '' running '' '' 0 'running -' 1
+rule 'on screen too' 'done' '' running '' '' 1 'running -' 1
+rule "a subagent's question still outlives it" 'done' '' ask a1 '' 0 '' 1
+rule 'a failed turn with subagents running is finished' failed '' running '' '' 0 'done -' 1
 rule 'an ended conversation has no mark' clear '' running '' '' 0 '- -'
 
 echo '# Shared helpers'
@@ -124,6 +128,11 @@ step '{"session_id":"s","agent_id":"a2"}' run 'done' 'a background agent keeps i
 step '{"session_id":"s","agent_id":"a2","notification_type":"agent_needs_input"}' ask ask 'a background agent can still ask'
 step '{"session_id":"s","agent_id":"a2"}' run running 'its step answers it'
 step '{"session_id":"s","last_assistant_message":"API Error: Rate limit reached"}' failed 'done' 'a failed turn is marked finished'
+conv=$work/conv && mkdir -p "$conv/subagents" && touch "$conv/subagents/a.jsonl"
+echo '{"description":"bg"}' >"$conv/subagents/a.meta.json"
+step "{\"session_id\":\"s\",\"transcript_path\":\"$conv.jsonl\"}" 'done' running 'a turn ending while a subagent runs keeps working'
+echo '{"description":"bg","finished":true}' >"$conv/subagents/a.meta.json"
+step "{\"session_id\":\"s\",\"transcript_path\":\"$conv.jsonl\"}" 'done' 'done' 'the turn after it reports is finished'
 step '{"session_id":"s","reason":"other"}' clear '' 'an ended conversation has no mark'
 hook "$pane" run '{"session_id":"s"}'
 hook "$pane" 'done' '{"session_id":"s"}'
@@ -218,6 +227,25 @@ rm -rf "$HOME/edited"
 listed=$("$scripts/window-picker.sh" list | tr '\0' '\n' | sed $'s/\e\\[[0-9;]*m//g')
 check 'a worktree removed since says so' removed "$(awk -F '  ·  ' '/main:1/ { print $3 }' <<<"$listed")"
 check 'a window without edits shows its own directory' '~' "$(awk -F '  ·  ' '/main:0/ { print $2 }' <<<"$listed")"
+# The subagents a Claude window runs: the list counts them, the preview names them
+agents=$(claude_agents_dir conv-a "$work/proj")
+mkdir -p "$agents" && cd "$agents" || exit 1
+echo 'not json' >a0.meta.json && touch a0.jsonl
+echo '{"description":"Running","finished":false}' >a1.meta.json && touch a1.jsonl
+echo '{"description":"Done","finished":true}' >a2.meta.json && touch a2.jsonl
+echo '{"description":"Stale","finished":false}' >a3.meta.json && touch -t 202001010000 a3.jsonl
+echo '{"description":"Second"}' >a4.meta.json
+echo '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Grep"}]}}' >a4.jsonl
+cd "$repo" || exit 1
+check 'running subagents are listed with their last tool' 'Running||Second|Grep|' \
+  "$("$scripts/claude-agents.sh" "$agents" | cut -f1,2 | tr '\t\n' '||')"
+tm set -p -t main:2 @claude_session conv-a \; set -p -t main:2 @claude_dir "$work/proj"
+listed=$("$scripts/window-picker.sh" list | tr '\0' '\n' | sed $'s/\e\\[[0-9;]*m//g')
+check 'the list counts the subagents a window runs' 1 "$(grep 'main:2' <<<"$listed" | grep -c '2 agents$')"
+check 'and only there' 1 "$(grep -c ' agents\{0,1\}$' <<<"$listed")"
+preview=$("$scripts/window-picker.sh" preview "$(tm display -p -t main:2 '#{window_id}')" | sed $'s/\e\\[[0-9;]*m//g')
+check 'the preview names them above the screen' 'Running|Second|Grep · 0m00s|' \
+  "$(sed -n '1p;3,4p' <<<"$preview" | sed 's/^[^ ]* //; s/^ *//' | tr '\n' '|')"
 
 echo '# Removing worktrees'
 printf '#!/bin/sh\n[ -n "${FAKE_PR:-}" ] && printf "%%s\\n" "$FAKE_PR"\nexit 0\n' >"$work/bin/gh"

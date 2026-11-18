@@ -68,7 +68,7 @@ notify() {
 # Puts next_mark's answer on the window. Fails when the mark stays as it is
 apply_mark() {
   local result new_mark new_asker
-  result=$(next_mark "$1" "$type" "$mark" "$asker" "$agent" "$on_screen")
+  result=$(next_mark "$1" "$type" "$mark" "$asker" "$agent" "$on_screen" "$busy")
   [ -n "$result" ] || return 1
   read -r new_mark new_asker <<<"$result"
   if [ "$new_mark" = - ]; then
@@ -94,14 +94,21 @@ fi
 [ -n "$TMUX_PANE" ] || exit 0
 input=$(cat)
 # agent is set on a subagent's hooks and empty for the main conversation
-IFS=$'\x1f' read -r session cwd agent type reason < <(
-  jq -r '[.session_id, .cwd, .agent_id, .notification_type, .reason] | map(. // "") | join("\u001f")' <<<"$input" 2>/dev/null
+IFS=$'\x1f' read -r session cwd agent type reason transcript < <(
+  jq -r '[.session_id, .cwd, .agent_id, .notification_type, .reason, .transcript_path] | map(. // "") | join("\u001f")' <<<"$input" 2>/dev/null
 ) || log_error "$1: unreadable hook input"
 # The window's mark, the agent that asked while it is a question, and whether
 # the window is in front of an attached client
 IFS=/ read -r mark asker on_screen < <(
   tmux display -p -t "$TMUX_PANE" '#{@claude_wait}/#{@claude_asker}/#{&&:#{window_active},#{session_attached}}'
 ) || log_error "$1: cannot read window $TMUX_PANE"
+
+# Whether a turn ends with subagents still running in the background
+busy=
+if [ "$1" = 'done' ] && [ -n "$transcript" ] &&
+  [ -n "$("$here/claude-agents.sh" "${transcript%.jsonl}/subagents" | head -1)" ]; then
+  busy=1
+fi
 
 changed=
 if [ "$1" = clear ] || remember; then
@@ -112,7 +119,8 @@ fi
 if apply_mark "$1"; then
   case $1 in
   ask) notify ask ;;
-  done | failed) notify "$1" ;;
+  'done') [ -n "$busy" ] || notify 'done' ;;
+  failed) notify failed ;;
   esac
 fi
 
