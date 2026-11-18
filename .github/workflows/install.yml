@@ -1,16 +1,21 @@
 name: Install
 
-# A full run takes several minutes, so only when something it installs or
-# writes changes: the installer, the package lists, and .gitignore, which keeps
-# what plugin managers write out of the repo
+# A full run takes several minutes, so only when something it installs, links
+# or loads changes: the installer, the package lists, .gitignore, which keeps
+# what plugin managers write out of the repo, and each package's config. The
+# tmux scripts have their own tests
 on:
   pull_request:
     paths:
       - install.sh
       - Brewfile
       - .gitignore
-      - nvim/.config/nvim/lazy-lock.json
-      - fish/.config/fish/fish_plugins
+      - nvim/**
+      - fish/**
+      - git/**
+      - ghostty/**
+      - ripgrep/**
+      - claude/**
       - tmux/.config/tmux/tmux.conf
       - .github/workflows/install.yml
   workflow_dispatch:
@@ -51,5 +56,9 @@ jobs:
             esac
           done
           jq -e '.hooks.Stop and .hooks.PostToolUse' "$HOME/.claude/settings.json" >/dev/null
-          nvim --headless "+lua if #require('lazy').plugins() == 0 then os.exit(1) end" +qa
+          # Neovim starts without an error, and every plugin the spec names is
+          # installed: a misspelt plugin fails to clone rather than to load
+          out=$(nvim --headless +qa 2>&1)
+          [ -z "$out" ] || { echo "$out"; exit 1; }
+          nvim --headless "+lua local missing = {} for _, p in ipairs(require('lazy').plugins()) do if not p._.installed then missing[#missing + 1] = p.name end end if #missing > 0 then io.stderr:write('not installed: ' .. table.concat(missing, ', ') .. '\n') os.exit(1) end" +qa
           fish -c 'abbr -q t'

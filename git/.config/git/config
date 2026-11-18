@@ -11,3 +11,7 @@
 	path = personal.gitconfig
 [includeIf "hasconfig:remote.*.url:git@github.com:AndyWang505/**"]
 	path = personal.gitconfig
+[includeIf "hasconfig:remote.*.url:https://github.com/AndyWang-505/**"]
+	path = personal.gitconfig
+[includeIf "hasconfig:remote.*.url:git@github.com:AndyWang-505/**"]
+	path = personal.gitconfig
