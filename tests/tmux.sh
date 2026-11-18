@@ -211,22 +211,24 @@ echo '# Window picker list'
 start -n shell -c "$HOME" \; new-window -t main -n w1 \; new-window -t main -n w2 \; new-window -t main -n w3
 tm set -w -t main:1 @claude_wait 'done' \; set -w -t main:2 @claude_wait ask \; set -w -t main:3 @claude_wait running
 listed=$("$scripts/window-picker.sh" list | tr '\0' '\n' | sed $'s/\e\\[[0-9;]*m//g')
+# The field a window's line shows after an icon:  directory,  branch,  removed
+field() { grep -F "$1" <<<"$listed" | awk -v icon="$2 " '{ s = substr($0, index($0, icon) + length(icon)); sub(/   .*/, "", s); print s }'; }
 check 'questions first, then finished, then the rest' 'main:2|main:1|main:0|main:3|' \
   "$(sed -n 's/^ *\(main:[0-9]\).*/\1/p' <<<"$listed" | tr '\n' '|')"
 check 'items are keyed by window id' "$(tm display -p -t main:2 '#{window_id}')" "$(head -1 <<<"$listed" | cut -f1)"
-check 'the home directory is shortened' '~' "$(awk -F '  ·  ' '/main:0/ { print $2 }' <<<"$listed")"
+check 'the home directory is shortened' '~' "$(field main:0 '')"
 # A session started in the main repo that edits a worktree shows the worktree
 git init -q "$HOME/edited" && git -C "$HOME/edited" checkout -q -b feature/edited
 review_pane=$(tm display -p -t main:1 '#{pane_id}')
 TMUX_PANE=$review_pane "$scripts/review-dirs.sh" <<<"{\"tool_input\":{\"file_path\":\"$HOME/edited/a.ts\"}}"
 listed=$("$scripts/window-picker.sh" list | tr '\0' '\n' | sed $'s/\e\\[[0-9;]*m//g')
 # shellcheck disable=SC2088 # the literal ~ is what the picker prints
-check 'a window shows the repo Claude last edited from it' '~/edited  ·  feature/edited' \
-  "$(awk -F '  ·  ' '/main:1/ { print $2 "  ·  " $3 }' <<<"$listed")"
+check 'a window shows the repo Claude last edited from it' '~/edited feature/edited' \
+  "$(field main:1 '') $(field main:1 '')"
 rm -rf "$HOME/edited"
 listed=$("$scripts/window-picker.sh" list | tr '\0' '\n' | sed $'s/\e\\[[0-9;]*m//g')
-check 'a worktree removed since says so' removed "$(awk -F '  ·  ' '/main:1/ { print $3 }' <<<"$listed")"
-check 'a window without edits shows its own directory' '~' "$(awk -F '  ·  ' '/main:0/ { print $2 }' <<<"$listed")"
+check 'a worktree removed since says so' removed "$(field main:1 '')"
+check 'a window without edits shows its own directory' '~' "$(field main:0 '')"
 # The subagents a Claude window runs: the list counts them, the preview names them
 agents=$(claude_agents_dir conv-a "$work/proj")
 mkdir -p "$agents" && cd "$agents" || exit 1
@@ -244,8 +246,8 @@ listed=$("$scripts/window-picker.sh" list | tr '\0' '\n' | sed $'s/\e\\[[0-9;]*m
 check 'the list counts the subagents a window runs' 1 "$(grep 'main:2' <<<"$listed" | grep -c '2 agents$')"
 check 'and only there' 1 "$(grep -c ' agents\{0,1\}$' <<<"$listed")"
 preview=$("$scripts/window-picker.sh" preview "$(tm display -p -t main:2 '#{window_id}')" | sed $'s/\e\\[[0-9;]*m//g')
-check 'the preview names them above the screen' 'Running|Second|Grep · 0m00s|' \
-  "$(sed -n '1p;3,4p' <<<"$preview" | sed 's/^[^ ]* //; s/^ *//' | tr '\n' '|')"
+check 'the preview names them above the screen' 'Running|Second| Grep|' \
+  "$(sed -n '1p;3,4p' <<<"$preview" | sed 's/^[^ ]* //; s/^ *//; s/ *[^ ]* [0-9]*m[0-9]*s$//' | tr '\n' '|')"
 
 echo '# Removing worktrees'
 printf '#!/bin/sh\n[ -n "${FAKE_PR:-}" ] && printf "%%s\\n" "$FAKE_PR"\nexit 0\n' >"$work/bin/gh"

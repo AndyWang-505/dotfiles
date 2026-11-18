@@ -92,13 +92,18 @@ if [ "$1" = list ]; then
       n = split(ENVIRON["AGENTS"], lines, "\n")
       for (i = 1; i <= n; i++) { split(lines[i], f, "\t"); agents[f[1]] = f[2] }
       dim = "\033[38;2;84;92;126m"; reset = "\033[0m"
+      branch_fg = "\033[38;2;157;124;216m"; removed_fg = "\033[38;2;219;75;75m"
     }
     {
       id = $1; target = $2; state = $3; dir = $4; title = $5
       icon = state in mark ? mark[state] : " "
-      extra = branch[dir] == "" ? "" : "  ·  " branch[dir]
-      if (id in agents) extra = extra "  ·  " mark["running"] " " agents[id] (agents[id] > 1 ? " agents" : " agent") dim
-      printf "%s\t %s%s  \033[1m%s%s\n    %s%s  ·  %s%s%s%c", id, icon, reset, title, reset, dim, target, shown[dir], extra, reset, 0
+      # Each field after the window is named by its icon and colour, as the
+      # shell prompt and Neovim show them:  directory,  branch, subagents
+      extra = ""
+      if (branch[dir] == "removed") extra = "   " removed_fg " removed" dim
+      else if (branch[dir] != "") extra = "   " branch_fg " " branch[dir] dim
+      if (id in agents) extra = extra "   " mark["running"] " " agents[id] (agents[id] > 1 ? " agents" : " agent") dim
+      printf "%s\t %s%s  \033[1m%s%s\n    %s%s    %s%s%s%c", id, icon, reset, title, reset, dim, target, shown[dir], extra, reset, 0
     }' <<<"$rows"
   exit 0
 fi
@@ -113,7 +118,7 @@ if [ "$1" = preview ]; then
     colour=$(printf '\033[38;2;%d;%d;%dm' $((16#${fg:1:2})) $((16#${fg:3:2})) $((16#${fg:5:2})))
     while IFS=$'\t' read -r description tool secs; do
       printf '%s%s\033[0m \033[1m%s\033[0m\n    \033[38;2;84;92;126m%s%dm%02ds\033[0m\n' \
-        "$colour" "$icon" "$description" "${tool:+$tool · }" $((secs / 60)) $((secs % 60))
+        "$colour" "$icon" "$description" "${tool:+ $tool   } " $((secs / 60)) $((secs % 60))
     done <<<"$rows"
     echo
     tmux capture-pane -ep -t "$2" | tail -n +$(($(wc -l <<<"$rows") * 2 + 2))
