@@ -58,7 +58,7 @@ list() {
   } | awk -F'\t' '
     $1 == "pr" { if ($3 != "") state[$2] = tolower($3); next }
     seen[$2]++ { next }
-    { print $2 "\t" $1 "\t" (($1 == "worktree" && $3 in state) ? "  · PR " state[$3] : "") }' |
+    { print $2 "\t" $1 "\t" (($1 == "worktree" && $3 in state) ? "    PR " state[$3] : "") }' |
     while IFS=$'\t' read -r dir tag pr; do
       printf '%s\t%-9s %s%s\n' "$dir" "$tag" "$(tilde "$dir")" "$pr"
     done
