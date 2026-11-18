@@ -105,7 +105,8 @@ Claude Code calls it from its hooks, which `install.sh` adds to
 
 Windows are labelled by the conversation title Claude Code puts in the pane
 title. A session that starts with a slash command never gets one, so a window
-can override it with `@claude_label`, which stays until the window closes:
+can override it with `@claude_label`, which stays until the window closes or
+a new or `/clear`ed conversation starts there:
 
 ```sh
 tmux set -w -t "$TMUX_PANE" @claude_label PROJ-123   # set
