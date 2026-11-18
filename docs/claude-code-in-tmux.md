@@ -79,6 +79,7 @@ hooks and tmux move it as follows. The rules are `next_mark` in
 | Claude's reminder after sitting idle | finished, idle | unchanged |
 | Any other notification | any | unchanged; a new type is noted |
 | A turn ends, or fails on an API error | a subagent's question | unchanged |
+| A turn ends with subagents still running in the background | anything else | working, until the turn after the last one reports |
 | A turn ends, or fails on an API error | anything else | finished, or idle when its window is on screen |
 | You open the window (switching to it, `cmd+p`, `cmd+i`) | finished | idle |
 | The conversation ends | any | no mark |
