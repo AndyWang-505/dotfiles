@@ -51,7 +51,8 @@ is how to clear out worktrees whose PRs are done.
 
 Both pickers' `ctrl-x` use `tmux/.config/tmux/scripts/worktree-remove.sh`. It
 only offers a worktree that loses nothing: no tmux pane is in it, nothing is
-uncommitted or untracked, HEAD is on a branch, and every ignored file, such as
+uncommitted or untracked, HEAD's commit is on a local or remote branch (so a
+detached HEAD loses nothing), and every ignored file, such as
 an `.env` copied in, is the same as the main worktree's copy. Only build output
 skips that check: `node_modules`, `dist`, `.nx`, `.next`, `.turbo`,
 `*.tsbuildinfo` and `.DS_Store`. The branch is deleted too when its PR is
@@ -96,8 +97,8 @@ since Claude Code runs no hook for an interrupt. A turn that ends on an API
 error is marked finished, with a ⚠️ desktop notification showing the error.
 
 The icons come from the Nerd Font Ghostty uses. The right of the status bar
-counts the questions and finished windows in your other sessions, which `cmd+i`
-jumps to.
+counts the questions and finished windows in your other sessions; `cmd+i`
+visits those and the ones in the current session too.
 
 Claude Code calls it from its hooks, which `install.sh` adds to
 `~/.claude/settings.json`, leaving any other hooks there alone.
@@ -130,8 +131,8 @@ needs both packages.
 `cmd+r` shows what the window's branch changed, in Neovim with diffview. It
 opens on the branch diff: everything since the branch forked from its base,
 committed or not. When Claude also edited other repos or worktrees from this
-window, such as an autofix worktree, and more than one has changes, it asks
-which to open.
+window, such as an autofix worktree, or another worktree of the same repo has
+changes, it asks which to open; only directories with changes are offered.
 
 | Key | Does |
 |-----|------|
@@ -146,5 +147,7 @@ which to open.
 - It starts read-only so a stray key cannot change a file; `<leader>ge` allows
   edits, which go to the real files.
 - `1` leaves out files that were never `git add`ed; `2` shows them.
-- The base is the PR's base branch, or else the newest `release/*` or the
-  default branch. Without any, only `2` works.
+- The base is the base branch of the branch's open PR, once that branch is
+  fetched. Otherwise it is the newest `release/*` or the default branch,
+  whichever the branch forked from more recently (fewer commits since).
+  Without any, only `2` works.
