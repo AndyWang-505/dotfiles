@@ -281,6 +281,15 @@ worktree untracked && echo new >untracked/new
 remove untracked 'an untracked file blocks removal' kept
 git -C main worktree add -q --detach "$repos/detached" && git -C detached commit -q --allow-empty -m x
 remove detached 'commits on no branch block removal' kept
+worktree hidden && echo mine >hidden/.gitignore && git -C hidden update-index --skip-worktree .gitignore
+remove hidden 'an edit hidden by skip-worktree blocks removal' kept
+worktree assumed && echo mine >assumed/.gitignore && git -C assumed update-index --assume-unchanged .gitignore
+remove assumed 'an edit hidden by assume-unchanged blocks removal' kept
+worktree marked && git -C marked update-index --skip-worktree .gitignore
+remove marked 'a skip-worktree file left as it is does not' removed
+worktree edited && tm set -w -t main:0 @review_dirs "$repos/main"$'\n'"$repos/edited"
+remove edited "a worktree another window's Claude edited is kept" kept
+tm set -wu -t main:0 @review_dirs
 worktree merged
 FAKE_PR="MERGED $(git -C merged rev-parse HEAD)" remove merged 'a worktree whose PR merged is removed' removed
 check 'and its branch is deleted' '' "$(git -C main branch --list merged)"

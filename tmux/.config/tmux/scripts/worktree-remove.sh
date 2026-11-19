@@ -4,8 +4,9 @@
 # new window picker (`ask`):
 #   worktree-remove.sh offer|ask <dir>
 # It only offers a worktree that loses nothing when removed:
-#   - no tmux pane is in it
-#   - nothing is uncommitted or untracked
+#   - no tmux pane is in it, and no window's Claude has edited it
+#   - nothing is uncommitted or untracked, including edits git status hides
+#     in files marked skip-worktree or assume-unchanged
 #   - HEAD is on a branch or remote branch, so a detached HEAD's commits stay
 #   - every ignored file is the same as the main worktree's copy, such as an
 #     .env copied in. Only what `build_output` names is let go unchecked
@@ -31,13 +32,29 @@ shown=$(tilde "$root")
 common=$(git -C "$root" rev-parse --path-format=absolute --git-common-dir)
 [ "$(git -C "$root" rev-parse --path-format=absolute --git-dir)" != "$common" ] ||
   refuse "$shown is the repository's main worktree"
-tmux list-panes -a -F '#{pane_current_path}' |
-  awk -v root="$root" '$0 == root || index($0, root "/") == 1 { found = 1 } END { exit !found }' &&
-  refuse "A tmux pane is still in $shown"
+# A Claude session started in the main repo works in a worktree with no pane
+# there; review-dirs.sh records each repo it edits on its window
+{
+  tmux list-panes -a -F '#{pane_current_path}'
+  tmux list-windows -a -F '#{@review_dirs}'
+} | awk -v root="$root" '$0 == root || index($0, root "/") == 1 { found = 1 } END { exit !found }' &&
+  refuse "A tmux pane or a Claude window is still using $shown"
 # --untracked-files=all overrides a status.showUntrackedFiles=no config, which
 # would hide new files from git worktree remove as well
 [ -z "$(git -C "$root" status --porcelain --untracked-files=all)" ] ||
   refuse "$shown has uncommitted or untracked changes"
+# git status shows no edits in files marked skip-worktree (S) or
+# assume-unchanged (lower case), so each is compared with what git has
+hidden=$(
+  git -C "$root" ls-files -v -z | while IFS= read -r -d '' entry; do
+    [[ ${entry:0:1} == S || ${entry:0:1} == [[:lower:]] ]] || continue
+    file=${entry:2}
+    [ "$(git -C "$root" hash-object -- "$file" 2>/dev/null)" = "$(git -C "$root" rev-parse ":$file")" ] ||
+      printf '  %s\n' "$file"
+  done
+)
+[ -z "$hidden" ] ||
+  refuse "These files in $shown are marked for git to ignore their edits, and have some:" "$hidden"
 [ -n "$(git -C "$root" for-each-ref --contains HEAD --count 1 refs/heads refs/remotes)" ] ||
   refuse "$shown has commits on no branch; put them on one first"
 
