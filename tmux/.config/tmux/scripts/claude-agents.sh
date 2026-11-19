@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # The subagents a Claude Code conversation is running, one per line:
-#   description <tab> tool it last called <tab> seconds since it started
+#   description <tab> tool it last called, or - <tab> seconds since it started
 # Claude Code keeps each subagent's <id>.meta.json (description, finished) and
 # <id>.jsonl (its transcript) in a subagents/ directory next to the
 # conversation's transcript.
@@ -19,5 +19,7 @@ while read -r changed born log; do
   description=$(jq -r 'select(.finished != true) | "x" + (.description // "agent" | gsub("[[:cntrl:]]"; " "))' "${log%.jsonl}.meta.json" 2>/dev/null)
   [ -n "$description" ] || continue
   tool=$(tail -n 60 "$log" | jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "tool_use") | .name' 2>/dev/null | tail -1)
-  printf '%s\t%s\t%s\n' "${description#x}" "$tool" $((now - born))
+  # - for a subagent that has not called a tool yet: an empty field would make
+  # IFS=$'\t' read merge the tabs around it
+  printf '%s\t%s\t%s\n' "${description#x}" "${tool:--}" $((now - born))
 done < <(stat -f '%m %B %N' "$agents"/*.jsonl)

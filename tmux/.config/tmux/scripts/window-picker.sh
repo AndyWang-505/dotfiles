@@ -9,11 +9,18 @@ here=$(dirname "${BASH_SOURCE[0]}")
 # shellcheck source-path=SCRIPTDIR
 . "$here/lib.sh"
 
+# Each window's Claude conversation, from the pane that runs it rather than
+# the window's active one: "window id <tab> session <tab> dir <tab> transcript"
+claude_panes() {
+  tmux list-panes "${@:--a}" -F '#{window_id}	#{@claude_session}	#{@claude_dir}	#{@claude_transcript}' |
+    awk -F'\t' '$2 != "" && !seen[$1]++'
+}
+
 # The subagents a window's Claude conversation is running (claude-agents.sh)
 #   window_agents <window id>
 window_agents() {
   local session dir transcript
-  IFS=$'\t' read -r session dir transcript < <(tmux display -p -t "$1" '#{@claude_session}	#{@claude_dir}	#{@claude_transcript}')
+  IFS=$'\t' read -r _ session dir transcript < <(claude_panes -t "$1")
   [ -z "$session" ] || "$here/claude-agents.sh" "$(claude_agents_dir "$session" "$dir" "$transcript")"
 }
 
@@ -49,7 +56,7 @@ fi
 # repo is the worktree it works in; otherwise, or once that worktree is
 # removed, as autofix does when it is done, the pane's own
 ranked() {
-  tmux list-windows -a -F '#{E:@claude_rank}	#{window_id}	#{session_name}:#{window_index}	#{?@claude_wait,#{@claude_wait},-}	#{?@review_dir,#{@review_dir},-}	#{pane_current_path}	#{E:@win_title}' |
+  tmux list-windows -a -F '#{E:@claude_rank}	#{window_id}	#{session_name}:#{window_index}	#{?@claude_wait,#{@claude_wait},-}	#{?@review_dir,#{@review_dir},-}	#{?pane_current_path,#{pane_current_path},-}	#{E:@win_title}' |
     sort -s -n -k1,1 | cut -f2- |
     # No field may be empty: read would merge the tabs around it and shift the rest
     while IFS=$'\t' read -r id target mark edited own title; do
@@ -78,9 +85,8 @@ if [ "$1" = list ]; then
     [ -z "$2" ] || printf '%s\n' "$line" >>"$2"
   done <<<"$rows"
   # How many subagents each window runs, "window id <tab> count" per line
-  agents=$(tmux list-windows -a -F '#{window_id}	#{@claude_session}	#{@claude_dir}	#{@claude_transcript}' |
+  agents=$(claude_panes |
     while IFS=$'\t' read -r window session dir transcript; do
-      [ -n "$session" ] || continue
       count=$("$here/claude-agents.sh" "$(claude_agents_dir "$session" "$dir" "$transcript")" | wc -l)
       [ "$count" -eq 0 ] || printf '%s\t%d\n' "$window" "$count"
     done)
@@ -124,6 +130,7 @@ if [ "$1" = preview ]; then
     IFS=' ' read -r icon fg < <(tmux display -p '#{@mark_running} #{@mark_running_fg}')
     colour=$(printf '\033[38;2;%d;%d;%dm' $((16#${fg:1:2})) $((16#${fg:3:2})) $((16#${fg:5:2})))
     while IFS=$'\t' read -r description tool secs; do
+      [ "$tool" != - ] || tool=
       printf '%s%s\033[0m \033[1m%s\033[0m\n    \033[38;2;84;92;126m%s%dm%02ds\033[0m\n' \
         "$colour" "$icon" "$description" "${tool:+ $tool   } " $((secs / 60)) $((secs % 60))
     done <<<"$rows"

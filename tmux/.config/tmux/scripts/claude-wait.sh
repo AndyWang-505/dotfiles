@@ -7,7 +7,8 @@
 #   UserPromptSubmit / PostToolUse -> run,
 #   SessionStart -> idle, SessionEnd -> clear
 # `claude-wait.sh snapshot [window id]` only rewrites that list, leaving the
-# window out; tmux.conf's hooks and window-picker.sh use it.
+# window out; tmux.conf's hooks and window-picker.sh use it. `claude-wait.sh
+# sweep` drops the mark from windows no Claude runs in any more.
 
 here=$(dirname "${BASH_SOURCE[0]}")
 # shellcheck source-path=SCRIPTDIR
@@ -90,6 +91,17 @@ note_new_type() {
 
 if [ "$1" = snapshot ]; then
   snapshot "$2"
+  exit 0
+fi
+# A window whose Claude pane was killed or moved to another window keeps its
+# mark, since Claude Code runs no hook for that; tmux.conf's pane hooks run
+# `claude-wait.sh sweep` to drop the mark from windows no Claude runs in
+if [ "$1" = sweep ]; then
+  tmux list-panes -a -F '#{window_id}	#{@claude_wait}	#{m/r:#{@claude_command},#{pane_current_command}}' |
+    awk -F'\t' '$2 != "" { marked[$1] = 1 } $3 == 1 { claude[$1] = 1 } END { for (w in marked) if (!(w in claude)) print w }' |
+    while read -r window; do
+      tmux set -wu -t "$window" @claude_wait \; set -wu -t "$window" @claude_asker
+    done
   exit 0
 fi
 [ -n "$TMUX_PANE" ] || exit 0

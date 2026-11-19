@@ -146,6 +146,21 @@ check 'visiting a finished window marks it seen' idle "$(mark main:0)"
 hook "$pane" run 'not json'
 check 'unreadable hook input is logged' 1 "$(grep -c 'run: unreadable hook input' "$XDG_STATE_HOME/tmux/claude-hooks.log" 2>/dev/null)"
 
+# Claude's pane killed without a hook. A program named claude stands in: tmux
+# names a pane by its process, which a script or a link to sleep would not give
+mkdir -p "$work/fake" &&
+  printf '#include <unistd.h>\nint main(void) { for (;;) pause(); }\n' | cc -x c -o "$work/fake/claude" -
+tm new-window -t main -n sw "$work/fake/claude" \; split-window -t main:sw \; split-window -t main:sw
+tm set -w -t main:sw @claude_wait running
+eventually [ "$(tm display -p -t main:sw.0 '#{pane_current_command}')" = claude ]
+tm kill-pane -t main:sw.2
+sleep 0.5
+check "killing another pane keeps a window's mark" running "$(mark main:sw)"
+tm kill-pane -t main:sw.0
+eventually [ -z "$(mark main:sw)" ]
+check "killing Claude's pane drops it" '' "$(mark main:sw)"
+tm kill-window -t main:sw
+
 echo '# Jumping to the window that waits (prefix a)'
 start -n w0 \; new-window -t main -n w1 \; new-window -t main -n w2 \; new-session -d -s other -n o0 \; select-window -t main:0
 tm set -w -t main:1 @claude_wait 'done' \; set -w -t main:2 @claude_wait ask \; set -w -t other:0 @claude_wait 'done'
@@ -260,7 +275,7 @@ echo '{"description":"Stale","finished":false}' >a3.meta.json && touch -t 202001
 echo '{"description":"Second"}' >a4.meta.json
 echo '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Grep"}]}}' >a4.jsonl
 cd "$repo" || exit 1
-check 'running subagents are listed with their last tool' 'Running||Second|Grep|' \
+check 'running subagents are listed with their last tool, - before the first' 'Running|-|Second|Grep|' \
   "$("$scripts/claude-agents.sh" "$agents" | cut -f1,2 | tr '\t\n' '||')"
 tm set -p -t main:2 @claude_session conv-a \; set -p -t main:2 @claude_dir "$work/proj"
 listed=$("$scripts/window-picker.sh" list | tr '\0' '\n' | sed $'s/\e\\[[0-9;]*m//g')
@@ -269,6 +284,11 @@ check 'and only there' 1 "$(grep -c ' agents\{0,1\}$' <<<"$listed")"
 preview=$("$scripts/window-picker.sh" preview "$(tm display -p -t main:2 '#{window_id}')" | sed $'s/\e\\[[0-9;]*m//g')
 check 'the preview names them above the screen' 'Running|Second| Grep|' \
   "$(sed -n '1p;3,4p' <<<"$preview" | sed 's/^[^ ]* //; s/^ *//; s/ *[^ ]* [0-9]*m[0-9]*s$//' | tr '\n' '|')"
+check 'one with no tool yet shows only its time' 1 "$(sed -n 2p <<<"$preview" | grep -cE '^ +[^ ]+ [0-9]+m[0-9]{2}s$')"
+tm split-window -t main:2
+listed=$("$scripts/window-picker.sh" list | tr '\0' '\n' | sed $'s/\e\\[[0-9;]*m//g')
+check 'they still show when Claude is not in the active pane' 1 "$(grep 'main:2' <<<"$listed" | grep -c '2 agents$')"
+check 'in the preview too' Running "$("$scripts/window-picker.sh" preview "$(tm display -p -t main:2 '#{window_id}')" | sed $'s/\e\\[[0-9;]*m//g' | sed -n '1s/^[^ ]* //p')"
 
 echo '# Removing worktrees'
 printf '#!/bin/sh\n[ -n "${FAKE_PR:-}" ] && printf "%%s\\n" "$FAKE_PR"\nexit 0\n' >"$work/bin/gh"
