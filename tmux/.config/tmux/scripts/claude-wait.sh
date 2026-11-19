@@ -16,14 +16,15 @@ here=$(dirname "${BASH_SOURCE[0]}")
 . "$here/claude-marks.sh"
 sessions=$state_dir/claude-sessions
 
-# Records the conversation a pane runs and the directory it started in, which
-# is where Claude files it. Fails when the pane already had it
+# Records the conversation a pane runs, the directory to reopen it in and its
+# transcript. A new conversation in the pane replaces all three. Fails when the
+# pane already had it
 remember() {
   [ -n "$session" ] || return 1
   [ "$session" = "$(tmux show -pv -t "$TMUX_PANE" @claude_session 2>/dev/null)" ] && return 1
-  tmux set -p -t "$TMUX_PANE" @claude_session "$session"
-  [ -n "$(tmux show -pv -t "$TMUX_PANE" @claude_dir 2>/dev/null)" ] ||
-    tmux set -p -t "$TMUX_PANE" @claude_dir "${cwd:-$PWD}"
+  tmux set -p -t "$TMUX_PANE" @claude_session "$session" \; \
+    set -p -t "$TMUX_PANE" @claude_dir "${cwd:-$PWD}" \; \
+    set -p -t "$TMUX_PANE" @claude_transcript "$transcript"
 }
 
 # One list per server, so a second server (tmux -L) never takes the main one's
@@ -32,9 +33,9 @@ remember() {
 snapshot() {
   local server panes
   server=$(tmux display -p '#{b:socket_path}-#{start_time}-#{pid}') || return
-  panes=$(tmux list-panes -a -F '#{@claude_session}	#{@claude_dir}	#{session_name}	#{window_id}') || return
+  panes=$(tmux list-panes -a -F '#{@claude_session}	#{@claude_dir}	#{session_name}	#{window_id}	#{@claude_transcript}') || return
   mkdir -p "$sessions" &&
-    awk -F'\t' -v except="$1" '$1 != "" && $4 != except && !seen[$1]++ { print $1 "\t" $2 "\t" $3 }' <<<"$panes" >"$sessions/.$server.$$" &&
+    awk -F'\t' -v except="$1" '$1 != "" && $4 != except && !seen[$1]++ { print $1 "\t" $2 "\t" $3 "\t" $5 }' <<<"$panes" >"$sessions/.$server.$$" &&
     mv "$sessions/.$server.$$" "$sessions/$server.tsv"
 }
 
@@ -139,7 +140,8 @@ fi
 if [ "$1" = clear ]; then
   case $reason in
   prompt_input_exit | clear | logout)
-    tmux set -pu -t "$TMUX_PANE" @claude_session \; set -pu -t "$TMUX_PANE" @claude_dir
+    tmux set -pu -t "$TMUX_PANE" @claude_session \; set -pu -t "$TMUX_PANE" @claude_dir \; \
+      set -pu -t "$TMUX_PANE" @claude_transcript
     ;;
   esac
 fi

@@ -64,7 +64,7 @@ hook() { # pane event json
   TMUX_PANE=$1 "$scripts/claude-wait.sh" "$2" <<<"$3"
 }
 mark() { tm show -wv -t "$1" @claude_wait 2>/dev/null; }
-resume_list() { cat "$XDG_STATE_HOME"/tmux/claude-sessions/*.tsv 2>/dev/null | tr '\t' ' ' | sort | tr '\n' '|'; }
+resume_list() { cat "$XDG_STATE_HOME"/tmux/claude-sessions/*.tsv 2>/dev/null | cut -f1-3 | tr '\t' ' ' | sort | tr '\n' '|'; }
 
 echo '# Mark rules (next_mark, one row per case in docs/claude-code-in-tmux.md)'
 rule() { # name event type mark asker agent on_screen expected [busy]
@@ -189,6 +189,9 @@ hook "$(tm display -p -t api:0 '#{pane_id}')" clear '{"session_id":"S0","reason"
 check 'a conversation ended with /exit leaves' 'S2 /tmp/dir 2 other|' "$(resume_list)"
 "$scripts/claude-wait.sh" snapshot "$(tm display -p -t other:1 '#{window_id}')"
 check 'the picker can leave out a window it is about to kill' '' "$(resume_list)"
+hook "$(tm display -p -t api:0 '#{pane_id}')" idle '{"session_id":"S5","cwd":"/tmp/a"}'
+hook "$(tm display -p -t api:0 '#{pane_id}')" idle '{"session_id":"S6","cwd":"/tmp/b"}'
+check 'a new conversation in a pane replaces its directory' 'S2 /tmp/dir 2 other|S6 /tmp/b api|' "$(resume_list)"
 
 echo '# Reopening after a restart'
 printf '#!/bin/sh\nexec sleep 300\n' >"$work/bin/claude"
@@ -211,6 +214,17 @@ printf '%s\n' "$saved" >"$XDG_STATE_HOME/tmux/claude-sessions/$socket-1-999999.t
 tm -f "$HOME/.config/tmux/tmux.conf" new -A -d -s main 2>/dev/null
 check 'each conversation reopens in its session' 'main claude --resume conv-main-0|main claude --resume conv-main-1|work claude --resume conv-work-0|' \
   "$(tm list-windows -a -F '#{session_name} #{pane_start_command}' | grep 'claude --resume' | sort | tr '\n' '|')"
+# A list named after a pid that a live tmux took again after a reboot, recording
+# a transcript away from where its directory would put it
+tm kill-server
+tmux -L "$socket-b" new -d
+reused=$(tmux -L "$socket-b" display -p '#{pid}')
+mkdir -p "$work/elsewhere" && touch "$work/elsewhere/conv-far.jsonl"
+printf 'conv-far\t%s\tmain\t%s\n' "$work/proj" "$work/elsewhere/conv-far.jsonl" >"$XDG_STATE_HOME/tmux/claude-sessions/$socket-1-$reused.tsv"
+tm -f "$HOME/.config/tmux/tmux.conf" new -A -d -s main 2>/dev/null
+check 'a list whose pid another tmux reuses reopens, from its recorded transcript' 'main claude --resume conv-far|' \
+  "$(tm list-windows -a -F '#{session_name} #{pane_start_command}' | grep 'claude --resume' | sort | tr '\n' '|')"
+tmux -L "$socket-b" kill-server
 
 echo '# Window picker list'
 start -n shell -c "$HOME" \; new-window -t main -n w1 \; new-window -t main -n w2 \; new-window -t main -n w3

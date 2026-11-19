@@ -12,9 +12,9 @@ here=$(dirname "${BASH_SOURCE[0]}")
 # The subagents a window's Claude conversation is running (claude-agents.sh)
 #   window_agents <window id>
 window_agents() {
-  local session dir
-  IFS=$'\t' read -r session dir < <(tmux display -p -t "$1" '#{@claude_session}	#{@claude_dir}')
-  [ -z "$session" ] || "$here/claude-agents.sh" "$(claude_agents_dir "$session" "$dir")"
+  local session dir transcript
+  IFS=$'\t' read -r session dir transcript < <(tmux display -p -t "$1" '#{@claude_session}	#{@claude_dir}	#{@claude_transcript}')
+  [ -z "$session" ] || "$here/claude-agents.sh" "$(claude_agents_dir "$session" "$dir" "$transcript")"
 }
 
 if [ "$1" = kill ]; then
@@ -78,10 +78,10 @@ if [ "$1" = list ]; then
     [ -z "$2" ] || printf '%s\n' "$line" >>"$2"
   done <<<"$rows"
   # How many subagents each window runs, "window id <tab> count" per line
-  agents=$(tmux list-windows -a -F '#{window_id}	#{@claude_session}	#{@claude_dir}' |
-    while IFS=$'\t' read -r window session dir; do
+  agents=$(tmux list-windows -a -F '#{window_id}	#{@claude_session}	#{@claude_dir}	#{@claude_transcript}' |
+    while IFS=$'\t' read -r window session dir transcript; do
       [ -n "$session" ] || continue
-      count=$("$here/claude-agents.sh" "$(claude_agents_dir "$session" "$dir")" | wc -l)
+      count=$("$here/claude-agents.sh" "$(claude_agents_dir "$session" "$dir" "$transcript")" | wc -l)
       [ "$count" -eq 0 ] || printf '%s\t%d\n' "$window" "$count"
     done)
   # Marks and their colours as tmux.conf defines them, one "state icon #rrggbb" per line
