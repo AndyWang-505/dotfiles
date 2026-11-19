@@ -49,8 +49,7 @@ eventually() {
   return 1
 }
 
-# A fresh server loading the real tmux.conf. TPM is not installed here, so its
-# line only prints an error.
+# A fresh server loading the real tmux.conf
 start() {
   tmux -L "$socket" kill-server 2>/dev/null
   rm -rf "$XDG_STATE_HOME"
@@ -103,6 +102,9 @@ check "Claude's project directory for a path" "$HOME/.claude/projects/-a-b-c-d" 
 echo '# Claude marks'
 
 start
+# tmux reports a bad line in tmux.conf and goes on with the rest, so only the
+# output shows it
+check 'tmux.conf loads without errors' '' "$(tm source-file "$HOME/.config/tmux/tmux.conf" 2>&1)"
 pane=$(tm display -p -t main:0 '#{pane_id}')
 step() { # json event expected name
   hook "$pane" "$2" "$1"
