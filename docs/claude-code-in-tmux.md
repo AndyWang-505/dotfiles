@@ -17,7 +17,7 @@ behave. The scripts live in `tmux/.config/tmux/scripts/`.
 Each Claude Code session gets its own window, started in the repo or worktree
 it works on: a running session cannot move, and `/diff` and the review popup
 look at the directory it started in. Ghostty's `cmd` keys send the tmux
-`prefix` keys, so they only work inside tmux. `prefix h`, `prefix v` and
+`prefix` keys, so they only work inside tmux. `prefix v`, `prefix s` and
 `prefix c` open the new pane or window in the current pane's directory.
 
 The status bar shows each window's mark; its right side counts the questions
@@ -39,9 +39,11 @@ unless that session is already in front of you.
 
 Lists the current directory, every worktree of its repo, then the directories
 Claude Code has run in, most recent first. `enter` starts a new conversation
-there, `ctrl-o` continues that directory's last one. A directory joins the list
-once Claude Code has run in it; before that, `cd` there and pick the current
-directory.
+there, `ctrl-o` continues that directory's last one. `ctrl-n` starts it in a
+tmux session instead: it asks for the session's name, filled in with the
+directory's name (`esc` cancels), adds a window if that session exists, and
+switches to it. A directory joins the list once Claude Code has run in it;
+before that, `cd` there and pick the current directory.
 
 Worktrees show their PR's state (open, merged, closed) a moment after the list
 opens, and `ctrl-x` [removes](#removing-worktrees) the highlighted one, which

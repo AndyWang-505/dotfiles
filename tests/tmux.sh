@@ -221,6 +221,9 @@ for t in main:0 main:1 work:0; do
   touch "$(claude_project_dir "$work/proj")/$id.jsonl"
   hook "$(tm display -p -t $t '#{pane_id}')" idle "{\"session_id\":\"$id\",\"cwd\":\"$work/proj\"}"
 done
+# A window that worked in worktrees, as review-dirs.sh records them
+tm set -w -t main:1 @review_dirs $'/wt/b\n/wt/a' \; set -w -t main:1 @review_dir /wt/b
+"$scripts/claude-wait.sh" snapshot
 saved=$(cat "$sessions_dir"/*.tsv)
 tm kill-server
 mkdir -p "$sessions_dir"
@@ -231,6 +234,8 @@ printf '%s\n' "$saved" >"$sessions_dir/$socket-1-999999.tsv"
 tm -f "$HOME/.config/tmux/tmux.conf" new -A -d -s main 2>/dev/null
 check 'each conversation reopens in its session' 'main claude --resume conv-main-0|main claude --resume conv-main-1|work claude --resume conv-work-0|' \
   "$(tm list-windows -a -F '#{session_name} #{pane_start_command}' | grep 'claude --resume' | sort | tr '\n' '|')"
+check 'a reopened conversation keeps the worktrees its window worked in' '/wt/b|/wt/b /wt/a' \
+  "$(tm list-windows -a -F '#{pane_start_command}' -f '#{m:*conv-main-1,#{pane_start_command}}' -F '#{@review_dir}|#{s/'$'\n''/ /:@review_dirs}')"
 # A list named after a pid that a live tmux took again after a reboot, recording
 # a transcript away from where its directory would put it
 tm kill-server

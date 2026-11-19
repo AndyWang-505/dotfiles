@@ -1,7 +1,7 @@
 # shellcheck shell=bash disable=SC2034
-# Shared look of the fzf popups (window-picker.sh, claude-launcher.sh): sharp
-# blue boxes in the tokyonight-night palette, the selected line in blue, and
-# key hints on the list's bottom edge. Sourced, not run.
+# Shared look of the fzf popups (window-picker.sh, claude-launcher.sh,
+# review.sh): sharp blue boxes in the tokyonight-night palette, the selected
+# line in blue, and key hints on the list's bottom edge. Sourced, not run.
 
 fzf_theme=(
   --style full:sharp --info hidden --highlight-line

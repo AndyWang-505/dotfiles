@@ -7,8 +7,10 @@
 #   3. directories Claude Code has run in, most recent session first; those
 #      whose sessions Claude Code has already cleaned up come last
 # enter starts a new conversation, ctrl-o continues the directory's last one,
-# ctrl-x removes a worktree (worktree-remove.sh). Worktrees show their PR's
-# state once GitHub answers, so the list opens without waiting for it.
+# ctrl-n starts a new conversation in a tmux session named at a prompt (the
+# directory's name by default), ctrl-x removes a worktree (worktree-remove.sh).
+# Worktrees show their PR's state once GitHub answers, so the list opens without
+# waiting for it.
 
 here=$(dirname "${BASH_SOURCE[0]}")
 # shellcheck source-path=SCRIPTDIR
@@ -75,16 +77,35 @@ self=${BASH_SOURCE[0]}
 . "$here/fzf-theme.sh"
 choice=$(
   list |
-    fzf --reverse --delimiter '\t' --with-nth 2 --expect ctrl-o \
+    fzf --reverse --delimiter '\t' --with-nth 2 --expect ctrl-o,ctrl-n \
       --bind "start:reload(\"$self\" list pr)" \
       --bind "ctrl-x:execute(\"$here/worktree-remove.sh\" ask {1})+reload(\"$self\" list pr)" \
       "${fzf_theme[@]}" --input-label ' New Claude window ' --list-label-pos bottom \
-      --list-label "$(key_hints enter 'new conversation' ctrl-o 'continue its last conversation' ctrl-x 'remove worktree')"
+      --list-label "$(key_hints enter 'new conversation' ctrl-o 'continue its last conversation' ctrl-n 'new session' ctrl-x 'remove worktree')"
 ) || exit 0
 
 key=$(head -1 <<<"$choice")
 dir=$(sed -n 2p <<<"$choice" | cut -f1)
 [ -n "$dir" ] || exit 0
+
+# The name is asked in fzf so esc cancels as it does in the list; an empty
+# name cancels too. A session that already has the name gets a new window
+# instead. A . or : in the name would be read as a window or pane in a tmux
+# target, so neither the check nor the switch would find the session
+if [ "$key" = ctrl-n ]; then
+  name=$(fzf --print-query --query "$(basename "$dir")" "${fzf_theme[@]}" \
+    --input-label ' New session name ' --list-label-pos bottom \
+    --list-label "$(key_hints enter create esc cancel)" </dev/null | head -1)
+  [ -n "$name" ] || exit 0
+  name=$(printf '%s' "$name" | tr '.:' '__')
+  if tmux has-session -t "=$name" 2>/dev/null; then
+    tmux new-window -t "=$name:" -c "$dir" claude
+  else
+    tmux new-session -d -s "$name" -c "$dir" claude
+  fi
+  tmux switch-client -t "=$name"
+  exit 0
+fi
 
 if [ "$key" = ctrl-o ]; then
   if [ -z "$(last_session "$dir")" ]; then
