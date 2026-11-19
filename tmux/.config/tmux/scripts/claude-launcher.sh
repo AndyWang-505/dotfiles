@@ -10,8 +10,9 @@
 # ctrl-x removes a worktree (worktree-remove.sh). Worktrees show their PR's
 # state once GitHub answers, so the list opens without waiting for it.
 
+here=$(dirname "${BASH_SOURCE[0]}")
 # shellcheck source-path=SCRIPTDIR
-. "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+. "$here/lib.sh"
 
 last_session() {
   find "$(claude_project_dir "$1")" -maxdepth 1 -name '*.jsonl' -exec stat -f '%m' {} + 2>/dev/null | sort -n | tail -1
@@ -71,12 +72,12 @@ fi
 
 self=${BASH_SOURCE[0]}
 # shellcheck source-path=SCRIPTDIR
-. "$(dirname "$self")/fzf-theme.sh"
+. "$here/fzf-theme.sh"
 choice=$(
   list |
     fzf --reverse --delimiter '\t' --with-nth 2 --expect ctrl-o \
       --bind "start:reload(\"$self\" list pr)" \
-      --bind "ctrl-x:execute(\"$(dirname "$self")/worktree-remove.sh\" ask {1})+reload(\"$self\" list pr)" \
+      --bind "ctrl-x:execute(\"$here/worktree-remove.sh\" ask {1})+reload(\"$self\" list pr)" \
       "${fzf_theme[@]}" --input-label ' New Claude window ' --list-label-pos bottom \
       --list-label "$(key_hints enter 'new conversation' ctrl-o 'continue its last conversation' ctrl-x 'remove worktree')"
 ) || exit 0

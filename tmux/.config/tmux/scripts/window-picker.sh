@@ -9,6 +9,24 @@ here=$(dirname "${BASH_SOURCE[0]}")
 # shellcheck source-path=SCRIPTDIR
 . "$here/lib.sh"
 
+# The text colour of everything secondary, tmux.conf's idle mark colour
+dim=$(hex_fg "$(tmux show -gv @mark_idle_fg)")
+
+# The directory the picker shows for a window, and ctrl-x offers to remove: the
+# repo or worktree Claude last edited from it (review-dirs.sh), which for a
+# session started in the main repo is the worktree it works in; otherwise, or
+# once that is removed, as autofix does when it is done, the pane's own. Both
+# fields are - when empty
+dir_fields='#{?@review_dir,#{@review_dir},-}	#{?pane_current_path,#{pane_current_path},-}'
+#   shown_dir <edited> <own>
+shown_dir() {
+  if [ "$1" != - ] && [ -d "$1" ]; then
+    printf '%s' "$1"
+  else
+    printf '%s' "$2"
+  fi
+}
+
 # Each window's Claude conversation, from the pane that runs it rather than
 # the window's active one: "window id <tab> session <tab> dir <tab> transcript"
 claude_panes() {
@@ -35,43 +53,34 @@ if [ "$1" = kill ]; then
     [ "$answer" = y ] || exit 0
     ;;
   esac
-  # The worktree the picker shows for it: the one Claude last edited, or the
-  # pane's own directory
-  IFS=$'\t' read -r path own < <(tmux display -p -t "$2" '#{@review_dir}	#{pane_current_path}')
-  [ -n "$path" ] && [ -d "$path" ] || path=$own
-  scripts=$(dirname "${BASH_SOURCE[0]}")
+  IFS=$'\t' read -r edited own < <(tmux display -p -t "$2" "$dir_fields")
+  path=$(shown_dir "$edited" "$own")
   # Off the resume list first: closing the server's last window ends tmux
   # before its own hook could do it
-  "$scripts/claude-wait.sh" snapshot "$2"
+  "$here/claude-wait.sh" snapshot "$2"
   tmux kill-window -t "$2"
   # Then offers to remove the worktree it ran in, if nothing would be lost
-  "$scripts/worktree-remove.sh" offer "$path"
+  "$here/worktree-remove.sh" offer "$path"
   exit 0
 fi
 
 # Windows by how much they need you (tmux.conf's @claude_rank), otherwise in
-# tmux's order. Fields: window id, session:index, mark (- when none),
-# directory, title. The directory is the repo or worktree Claude last edited
-# from the window (review-dirs.sh), which for a session started in the main
-# repo is the worktree it works in; otherwise, or once that worktree is
-# removed, as autofix does when it is done, the pane's own
+# tmux's order. Fields: window id, session:index, mark (- when none), the
+# directory shown_dir picks, title
 ranked() {
-  tmux list-windows -a -F '#{E:@claude_rank}	#{window_id}	#{session_name}:#{window_index}	#{?@claude_wait,#{@claude_wait},-}	#{?@review_dir,#{@review_dir},-}	#{?pane_current_path,#{pane_current_path},-}	#{E:@win_title}' |
+  tmux list-windows -a -F "#{E:@claude_rank}	#{window_id}	#{session_name}:#{window_index}	#{?@claude_wait,#{@claude_wait},-}	$dir_fields	#{E:@win_title}" |
     sort -s -n -k1,1 | cut -f2- |
-    # No field may be empty: read would merge the tabs around it and shift the rest
     while IFS=$'\t' read -r id target mark edited own title; do
-      [ "$edited" != - ] && [ -d "$edited" ] || edited=$own
-      printf '%s\t%s\t%s\t%s\t%s\n' "$id" "$target" "$mark" "$edited" "$title"
+      printf '%s\t%s\t%s\t%s\t%s\n' "$id" "$target" "$mark" "$(shown_dir "$edited" "$own")" "$title"
     done
 }
 
-# The picker's items, two lines each: the mark and title, then session:index,
-# directory and branch. Marks match the status bar, except that working does
-# not spin: animating the list would redraw it every second and make the text
-# cursor jump. Branches are looked up once per directory while it is open.
-#   window-picker.sh list [branch cache]
-if [ "$1" = list ]; then
-  rows=$(ranked)
+# Each shown directory's branch, once per directory while the picker is open:
+# "directory <tab> branch, or removed <tab> directory with ~" per line. Lines
+# already in the cache file are reused, new ones added to it
+#   branch_lines <rows> [cache file]
+branch_lines() {
+  local branches line dir
   branches=$(cat "$2" 2>/dev/null)
   while IFS=$'\t' read -r _ _ _ dir _; do
     case $'\n'$branches$'\n' in *$'\n'"$dir"$'\t'*) continue ;; esac
@@ -83,28 +92,47 @@ if [ "$1" = list ]; then
     fi
     branches+=$'\n'$line
     [ -z "$2" ] || printf '%s\n' "$line" >>"$2"
-  done <<<"$rows"
-  # How many subagents each window runs, "window id <tab> count" per line
-  agents=$(claude_panes |
-    while IFS=$'\t' read -r window session dir transcript; do
-      count=$("$here/claude-agents.sh" "$(claude_agents_dir "$session" "$dir" "$transcript")" | wc -l)
-      [ "$count" -eq 0 ] || printf '%s\t%d\n' "$window" "$count"
-    done)
-  # Marks and their colours as tmux.conf defines them, one "state icon #rrggbb" per line
-  marks=$(tmux display -p "$(printf 'ask #{@mark_ask} #{@mark_ask_fg}\ndone #{@mark_done} #{@mark_done_fg}\nrunning #{@mark_running} #{@mark_running_fg}\nidle #{@mark_idle} #{@mark_idle_fg}')")
-  AGENTS=$agents BRANCHES=$branches MARKS=$marks awk -F'\t' '
-    function rgb(hex) {
-      return sprintf("\033[38;2;%d;%d;%dm", hexbyte(substr(hex, 2, 2)), hexbyte(substr(hex, 4, 2)), hexbyte(substr(hex, 6, 2)))
-    }
-    function hexbyte(h) { return index("0123456789abcdef", tolower(substr(h, 1, 1))) * 16 + index("0123456789abcdef", tolower(substr(h, 2, 1))) - 17 }
+  done <<<"$1"
+  printf '%s\n' "$branches"
+}
+
+# How many subagents each window runs: "window id <tab> count" per line
+agent_counts() {
+  local window session dir transcript count
+  claude_panes | while IFS=$'\t' read -r window session dir transcript; do
+    count=$("$here/claude-agents.sh" "$(claude_agents_dir "$session" "$dir" "$transcript")" | wc -l)
+    [ "$count" -eq 0 ] || printf '%s\t%d\n' "$window" "$count"
+  done
+}
+
+# Each mark as tmux.conf defines it, coloured: "state <tab> mark" per line
+mark_escapes() {
+  local format='' state icon fg
+  for state in ask 'done' running idle; do
+    format+="$state	#{@mark_$state}	#{@mark_${state}_fg}"$'\n'
+  done
+  tmux display -p "$format" |
+    while IFS=$'\t' read -r state icon fg; do
+      printf '%s\t%s%s\n' "$state" "$(hex_fg "$fg")" "$icon"
+    done
+}
+
+# The picker's items, two lines each: the mark and title, then session:index,
+# directory and branch. Marks match the status bar, except that working does
+# not spin: animating the list would redraw it every second and make the text
+# cursor jump. Branches are looked up once per directory while it is open.
+#   window-picker.sh list [branch cache]
+if [ "$1" = list ]; then
+  rows=$(ranked)
+  AGENTS=$(agent_counts) BRANCHES=$(branch_lines "$rows" "$2") MARKS=$(mark_escapes) DIM=$dim awk -F'\t' '
     BEGIN {
       n = split(ENVIRON["BRANCHES"], lines, "\n")
       for (i = 1; i <= n; i++) { split(lines[i], f, "\t"); branch[f[1]] = f[2]; shown[f[1]] = f[3] }
       n = split(ENVIRON["MARKS"], lines, "\n")
-      for (i = 1; i <= n; i++) { split(lines[i], f, " "); mark[f[1]] = rgb(f[3]) f[2] }
+      for (i = 1; i <= n; i++) { split(lines[i], f, "\t"); mark[f[1]] = f[2] }
       n = split(ENVIRON["AGENTS"], lines, "\n")
       for (i = 1; i <= n; i++) { split(lines[i], f, "\t"); agents[f[1]] = f[2] }
-      dim = "\033[38;2;84;92;126m"; reset = "\033[0m"
+      dim = ENVIRON["DIM"]; reset = "\033[0m"
       branch_fg = "\033[38;2;157;124;216m"; removed_fg = "\033[38;2;219;75;75m"
     }
     {
@@ -127,12 +155,12 @@ fi
 if [ "$1" = preview ]; then
   rows=$(window_agents "$2")
   if [ -n "$rows" ]; then
-    IFS=' ' read -r icon fg < <(tmux display -p '#{@mark_running} #{@mark_running_fg}')
-    colour=$(printf '\033[38;2;%d;%d;%dm' $((16#${fg:1:2})) $((16#${fg:3:2})) $((16#${fg:5:2})))
+    IFS=$'\t' read -r icon fg < <(tmux display -p '#{@mark_running}	#{@mark_running_fg}')
+    colour=$(hex_fg "$fg")
     while IFS=$'\t' read -r description tool secs; do
       [ "$tool" != - ] || tool=
-      printf '%s%s\033[0m \033[1m%s\033[0m\n    \033[38;2;84;92;126m%s%dm%02ds\033[0m\n' \
-        "$colour" "$icon" "$description" "${tool:+ $tool   } " $((secs / 60)) $((secs % 60))
+      printf '%s%s\033[0m \033[1m%s\033[0m\n    %s%s%dm%02ds\033[0m\n' \
+        "$colour" "$icon" "$description" "$dim" "${tool:+ $tool   } " $((secs / 60)) $((secs % 60))
     done <<<"$rows"
     echo
     tmux capture-pane -ep -t "$2" | tail -n +$(($(wc -l <<<"$rows") * 2 + 2))
@@ -144,8 +172,9 @@ fi
 
 self=${BASH_SOURCE[0]}
 # shellcheck source-path=SCRIPTDIR
-. "$(dirname "$self")/fzf-theme.sh"
-if [ "$(tmux list-windows -a -F '#{@claude_wait}' | grep -cxE 'ask|done')" -gt 0 ]; then
+. "$here/fzf-theme.sh"
+# Rank 0 or 1 is a window that needs you (tmux.conf's @claude_rank)
+if tmux list-windows -a -F '#{E:@claude_rank}' | grep -qx '[01]'; then
   position=1
 else
   current=$(tmux display -p '#{window_id}')
