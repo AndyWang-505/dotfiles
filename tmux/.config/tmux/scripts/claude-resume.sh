@@ -32,16 +32,22 @@ done
 
 # A conversation that never got a message has no transcript, and
 # `claude --resume` would exit at once. Lists record the transcript Claude Code
-# reported, - when it reported none; older lists have no such field
+# reported, - when it reported none; older lists have no such field. The repos
+# the window edited go back on it, so the window picker shows the worktree it
+# worked in and worktree-remove.sh keeps protecting it; older lists have no
+# such field either
 running=$(tmux list-panes -a -F '#{@claude_session}')
-while IFS=$'\t' read -r session cwd name file; do
+while IFS=$'\t' read -r session cwd name file dirs; do
   [ -n "$file" ] && [ "$file" != - ] || file=$(claude_transcript "$session" "$cwd")
   [ -n "$session" ] && [ -d "$cwd" ] && [ -f "$file" ] || continue
   grep -qxF "$session" <<<"$running" && continue
   if tmux has-session -t "=$name" 2>/dev/null; then
-    tmux new-window -d -t "=$name:" -c "$cwd" claude --resume "$session"
+    window=$(tmux new-window -d -P -F '#{window_id}' -t "=$name:" -c "$cwd" claude --resume "$session")
   else
-    tmux new-session -d -s "$name" -c "$cwd" claude --resume "$session"
+    window=$(tmux new-session -d -P -F '#{window_id}' -s "$name" -c "$cwd" claude --resume "$session")
+  fi
+  if [ -n "$dirs" ] && [ "$dirs" != - ]; then
+    tmux set -w -t "$window" @review_dirs "${dirs//$us/$nl}" \; set -w -t "$window" @review_dir "${dirs%%"$us"*}"
   fi
 done <"$list"
 

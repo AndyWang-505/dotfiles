@@ -29,13 +29,15 @@ remember() {
 
 # One list per server, so a second server (tmux -L) never takes the main one's
 # conversations. Written to a temporary file first, since hooks from several
-# panes can run at once
+# panes can run at once. The window's @review_dirs goes last, its lines joined
+# by the unit separator, so the windows that worked in worktrees still show and
+# protect them after a restart
 snapshot() {
   local server panes
   server=$(server_list_name) || return
-  panes=$(tmux list-panes -a -F '#{@claude_session}	#{@claude_dir}	#{session_name}	#{window_id}	#{?@claude_transcript,#{@claude_transcript},-}') || return
+  panes=$(tmux list-panes -a -F "#{@claude_session}	#{@claude_dir}	#{session_name}	#{window_id}	#{?@claude_transcript,#{@claude_transcript},-}	#{?@review_dirs,#{s/$nl/$us/:@review_dirs},-}") || return
   mkdir -p "$sessions_dir" &&
-    awk -F'\t' -v except="$1" '$1 != "" && $4 != except && !seen[$1]++ { print $1 "\t" $2 "\t" $3 "\t" $5 }' <<<"$panes" >"$sessions_dir/.$server.$$" &&
+    awk -F'\t' -v except="$1" '$1 != "" && $4 != except && !seen[$1]++ { print $1 "\t" $2 "\t" $3 "\t" $5 "\t" $6 }' <<<"$panes" >"$sessions_dir/.$server.$$" &&
     mv "$sessions_dir/.$server.$$" "$sessions_dir/$server.tsv"
 }
 

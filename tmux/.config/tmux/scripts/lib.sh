@@ -14,6 +14,10 @@ state_dir=${XDG_STATE_HOME:-$HOME/.local/state}/tmux
 # the running server's, claude-resume.sh reads the one before after a restart
 # shellcheck disable=SC2034 # used by the scripts that source this
 sessions_dir=$state_dir/claude-sessions
+# A newline, and the unit separator the resume lists put in its place in a
+# window's @review_dirs
+# shellcheck disable=SC2034 # used by the scripts that source this
+nl=$'\n' us=$'\x1f'
 
 # The running server's list name: socket, start time and pid, so no two
 # servers share one
