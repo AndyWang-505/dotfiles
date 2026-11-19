@@ -97,7 +97,8 @@ works.
 | `cmd+shift+n` | `prefix C` | [New Claude Code window](docs/claude-code-in-tmux.md#new-window-picker) in a directory you pick; pick it there, since a running session cannot move. `ctrl-n` opens it in a new tmux session instead |
 | `cmd+r` | `prefix e` | [Review popup](docs/claude-code-in-tmux.md#review-popup) for what the window's branch changed |
 | `cmd+g` | `prefix g` | lazygit on the window's repo or worktree, in a popup |
-| | `prefix h` / `prefix v` | Split the pane side by side / top and bottom, in the current pane's directory; `prefix c` opens a window there |
+| | `prefix v` / `prefix s` | Split the pane side by side / top and bottom, as vim's `<C-w>v` / `<C-w>s`, in the current pane's directory; `prefix c` opens a window there |
+| | `prefix h` `j` `k` `l` | Move to the pane left / below / above / right |
 | | `prefix [` | Copy mode with vi keys; `v` selects, `y` copies to the clipboard |
 
 | Mark | Means |

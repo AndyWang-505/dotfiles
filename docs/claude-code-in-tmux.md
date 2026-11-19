@@ -17,7 +17,7 @@ behave. The scripts live in `tmux/.config/tmux/scripts/`.
 Each Claude Code session gets its own window, started in the repo or worktree
 it works on: a running session cannot move, and `/diff` and the review popup
 look at the directory it started in. Ghostty's `cmd` keys send the tmux
-`prefix` keys, so they only work inside tmux. `prefix h`, `prefix v` and
+`prefix` keys, so they only work inside tmux. `prefix v`, `prefix s` and
 `prefix c` open the new pane or window in the current pane's directory.
 
 The status bar shows each window's mark; its right side counts the questions

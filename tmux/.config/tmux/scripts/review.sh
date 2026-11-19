@@ -8,8 +8,11 @@
 # whichever of the newest release/* and the default branch HEAD forked from most
 # recently. Remote branches come from upstream in a fork and origin otherwise.
 
+here=$(dirname "${BASH_SOURCE[0]}")
 # shellcheck source-path=SCRIPTDIR
-. "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+. "$here/lib.sh"
+# shellcheck source-path=SCRIPTDIR
+. "$here/fzf-theme.sh"
 
 die() {
   echo "$*"
@@ -61,8 +64,9 @@ candidates() {
 
 choose() {
   while IFS= read -r dir; do printf '%s\t%s\n' "$dir" "$(tilde "$dir")"; done |
-    fzf --reverse --delimiter '\t' --with-nth 2 --prompt 'review> ' --bind "load:pos($1)" \
-      --header 'enter: review  esc: close  (quitting nvim comes back here)' |
+    fzf --reverse --delimiter '\t' --with-nth 2 --bind "load:pos($1)" \
+      "${fzf_theme[@]}" --input-label ' Review ' --list-label-pos bottom \
+      --list-label "$(key_hints enter 'review, quitting nvim comes back here' esc close)" |
     cut -f1
 }
 
