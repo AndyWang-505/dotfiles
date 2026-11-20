@@ -82,7 +82,7 @@ Ghostty, where Homebrew is on the PATH. More on each in [docs/setup.md](docs/set
 
 ## Claude Code in tmux
 
-![Claude Code sessions in tmux: status marks, jumping to the one that asks, the review popup, both pickers and removing a merged worktree](docs/assets/claude-code-in-tmux.gif)
+![One feature split across tmux sessions: a lead Claude hands API and web work to two sessions, the window picker shows the subagents each runs, then jumping to the one that asks, the review popup, a new session from the new window picker, vim-style splits and removing a merged worktree](docs/assets/claude-code-in-tmux.gif)
 
 Run several Claude Code sessions at once, each in its own tmux window in the
 repo or worktree it works on. The status bar shows what each one is doing, and
