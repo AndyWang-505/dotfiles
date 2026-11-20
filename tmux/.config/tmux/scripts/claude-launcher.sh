@@ -93,7 +93,7 @@ dir=$(sed -n 2p <<<"$choice" | cut -f1)
 # instead. A . or : in the name would be read as a window or pane in a tmux
 # target, so neither the check nor the switch would find the session
 if [ "$key" = ctrl-n ]; then
-  name=$(fzf --print-query --query "$(basename "$dir")" "${fzf_theme[@]}" \
+  name=$(fzf --print-query --query "$(basename "$dir")" --layout reverse "${fzf_theme[@]}" \
     --input-label ' New session name ' --list-label-pos bottom \
     --list-label "$(key_hints enter create esc cancel)" </dev/null | head -1)
   [ -n "$name" ] || exit 0
